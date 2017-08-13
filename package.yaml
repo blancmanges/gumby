@@ -1,0 +1,31 @@
+name: gumby
+version: '0.0.0.1'
+synopsis: Mr. Gumby---a stupid bot.
+category: Network
+author: Konrad Gądek
+maintainer: kgadek@gmail.com
+copyright: (c) 2017 Konrad Gądek
+license: MPL-2.0
+
+
+dependencies:
+  - base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies: []
+
+executables:
+  gumby:
+    main: Main.hs
+    source-dirs: app
+    dependencies:
+      - gumby
+
+tests:
+  gumby-test:
+    main: Main.hs
+    source-dirs:
+      - test
+    dependencies:
+      - gumby
