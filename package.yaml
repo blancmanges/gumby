@@ -21,6 +21,14 @@ executables:
     source-dirs: app
     dependencies:
       - gumby
+      - lens
+      - aeson
+      - wuss
+      - websockets
+      - wreq
+      - uri-bytestring
+      - text
+      - bytestring
 
 tests:
   gumby-test:
