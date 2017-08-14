@@ -13,7 +13,13 @@ dependencies:
 
 library:
   source-dirs: src
-  dependencies: []
+  dependencies:
+      - autoexporter
+      - aeson
+      - neat-interpolation
+      - lens
+      - bytestring
+      - text
 
 executables:
   gumby:
@@ -32,8 +38,15 @@ executables:
 
 tests:
   gumby-test:
-    main: Main.hs
+    main: Spec.hs
     source-dirs:
       - test
     dependencies:
       - gumby
+      - aeson
+      - hspec
+      - hspec-expectations
+      - neat-interpolation
+      - lens
+      - bytestring
+      - text
