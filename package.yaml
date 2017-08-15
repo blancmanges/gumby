@@ -20,6 +20,9 @@ library:
       - lens
       - bytestring
       - text
+      - wreq
+      - websockets
+      - uri-bytestring
 
 executables:
   gumby:

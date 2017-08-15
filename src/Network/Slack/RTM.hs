@@ -8,18 +8,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
-module Network.Slack.Events where
+module Network.Slack.RTM where
 
 
 
 -- base
+import           Prelude hiding (id)
 import           Data.Maybe
 import           Data.List
 
 -- aeson
 import qualified Data.Aeson as Ae
-import           Data.Aeson ((.:?), (.:))
+import           Data.Aeson ((.:?), (.:), (.=))
 import qualified Data.Aeson.Types as Ae
 import           Data.Aeson.Types (camelTo2)
 import           Data.Aeson.TH (deriveFromJSON, defaultOptions, Options(..))
@@ -28,7 +30,13 @@ import           Data.Aeson.TH (deriveFromJSON, defaultOptions, Options(..))
 import qualified Data.Text as T
 
 -- lens
-import           Control.Lens
+import           Control.Lens hiding ((.=))
+
+-- websockets
+import qualified Network.WebSockets as WS
+
+-- uri-bytestring
+import qualified URI.ByteString as URI
 
 
 
@@ -45,11 +53,11 @@ instance Ae.FromJSON EHello where
 -- https://api.slack.com/events/message
 data EMessage
   = EMessage
-      { _eMessageChannel :: T.Text
-      , _eMessageUser :: T.Text
-      , _eMessageText :: T.Text
-      , _eMessageTs :: T.Text
-      }
+    { _eMessageChannel :: T.Text
+    , _eMessageUser :: T.Text
+    , _eMessageText :: T.Text
+    , _eMessageTs :: T.Text
+    }
   deriving (Show, Eq)
 makeFields ''EMessage
 
@@ -62,11 +70,11 @@ deriveFromJSON
 -- https://api.slack.com/rtm#handling_responses
 data EMessageSent
   = EMessageSent
-      { _eMessageSentOk :: Bool
-      , _eMessageSentReplyTo :: Int
-      , _eMessageSentTs :: T.Text
-      , _eMessageSentText :: T.Text
-      }
+    { _eMessageSentOk :: Bool
+    , _eMessageSentReplyTo :: Int
+    , _eMessageSentTs :: T.Text
+    , _eMessageSentText :: T.Text
+    }
   deriving (Show, Eq)
 makeFields ''EMessageSent
 
@@ -110,9 +118,9 @@ instance Ae.FromJSON EPresenceChange where
 -- https://api.slack.com/events/user_typing
 data EUserTyping
   = EUserTyping
-      { _eUserTypingChannel :: T.Text
-      , _eUserTypingUser :: T.Text
-      }
+    { _eUserTypingChannel :: T.Text
+    , _eUserTypingUser :: T.Text
+    }
   deriving (Show, Eq)
 makeFields ''EUserTyping
 
@@ -149,3 +157,29 @@ instance Ae.FromJSON Event where
       where
         continue :: Ae.FromJSON a => Ae.Parser a
         continue = Ae.parseJSON oo
+
+
+
+class RTMAPI req where
+    rtmAPICall :: (Ae.ToJSON req) => WS.Connection -> req -> IO ()
+    rtmAPICall conn = WS.sendTextData conn . Ae.encode
+
+
+
+data RSendMessage
+  = RSendMessage
+      { _rSendMessageId :: Int
+      , _rSendMessageChannel :: T.Text
+      , _rSendMessageText :: T.Text
+      }
+  deriving (Show, Eq)
+makeFields ''RSendMessage
+
+instance Ae.ToJSON RSendMessage where
+    toJSON x = Ae.object [ "id"      .= (x ^. id)
+                         , "type"    .= ("message" :: T.Text)
+                         , "channel" .= (x ^. channel)
+                         , "text"    .= (x ^. text)
+                         ]
+
+instance RTMAPI RSendMessage

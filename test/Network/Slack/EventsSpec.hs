@@ -11,7 +11,7 @@ module Network.Slack.EventsSpec where
 
 
 -- gumby
-import           Network.Slack.Events
+import           Network.Slack.RTM
 
 -- aeson
 import qualified Data.Aeson as Ae
