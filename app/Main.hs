@@ -130,12 +130,12 @@ gumby resp chanId slackSecretApiToken conn = forever $ do
             UnknownEvent     -> putStrLn $ "  ???"
             Message x        -> do
                 putStrLn $ "  events/message: " ++ show x
-                when (gumbyCallout `T.isPrefixOf` (x ^. msgText)) $ do
+                when (gumbyCallout `T.isPrefixOf` (x ^. text)) $ do
                     putStrLn "  ~~> asking about user details"
                     let opts =
                             Wr.defaults
                                 & param "token" .~ [slackSecretApiToken]
-                                & param "user" .~ [x ^. msgUser]
+                                & param "user" .~ [x ^. user]
 
                     respEncoded <- Wr.getWith opts "https://slack.com/api/users.info"
                     userName <-
@@ -156,7 +156,7 @@ gumby resp chanId slackSecretApiToken conn = forever $ do
                     WS.sendTextData conn . Ae.encode $ 
                         RtmSendMsg
                             { _rtmSendId = 42
-                            , _rtmSendChannel = x ^. msgChannel
+                            , _rtmSendChannel = x ^. channel
                             , _rtmSendText = response
                             }
 

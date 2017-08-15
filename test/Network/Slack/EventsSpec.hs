@@ -20,7 +20,7 @@ import qualified Data.Aeson as Ae
 import           Test.Hspec.Expectations.Aeson
 
 -- neat-interpolation
-import           NeatInterpolation (text)
+import qualified NeatInterpolation as Multiline
 
 
 
@@ -29,7 +29,7 @@ spec = do
     -- -------------------------------------------------------------------------
     describe "events/hello" $ do
         let exampleEventText =
-                [text|
+                [Multiline.text|
                     {
                         "type": "hello"
                     }
@@ -45,7 +45,7 @@ spec = do
     -- -------------------------------------------------------------------------
     describe "send message confirmation" $ do
         let exampleEventText = 
-                [text|
+                [Multiline.text|
                     {
                         "ok": true,
                         "reply_to": 1,
@@ -55,10 +55,10 @@ spec = do
                 |]
             exampleEvent =
                 EMessageSent
-                    { _ackOk = True
-                    , _ackReplyTo = 1
-                    , _ackTs = "1355517523.000005"
-                    , _ackText = "Hello world"
+                    { _eMessageSentOk = True
+                    , _eMessageSentReplyTo = 1
+                    , _eMessageSentTs = "1355517523.000005"
+                    , _eMessageSentText = "Hello world"
                     }
 
         it "instance FromJSON EMessageSent" $ do
@@ -69,7 +69,7 @@ spec = do
     -- -------------------------------------------------------------------------
     describe "events/presence_change" $ do
         let exampleEvent1Text = 
-                [text|
+                [Multiline.text|
                     {
                         "type": "presence_change",
                         "user": "U024BE7LH",
@@ -78,12 +78,12 @@ spec = do
                 |]
             exampleEvent1 =
                 EPresenceChange
-                    { _presenceUsers = ["U024BE7LH"]
-                    , _presencePresence = "away"
+                    { _ePresenceChangeUsers = ["U024BE7LH"]
+                    , _ePresenceChangePresence = "away"
                     }
             
             exampleEvent2Text = 
-                [text|
+                [Multiline.text|
                     {
                         "type": "presence_change_batch",
                         "users": ["U024BE7LH", "U012EA2U1"],
@@ -92,8 +92,8 @@ spec = do
                 |]
             exampleEvent2 =
                 EPresenceChange
-                    { _presenceUsers = ["U024BE7LH", "U012EA2U1"]
-                    , _presencePresence = "away"
+                    { _ePresenceChangeUsers = ["U024BE7LH", "U012EA2U1"]
+                    , _ePresenceChangePresence = "away"
                     }
 
         it "instance FromJSON EPresenceChange" $ do
@@ -106,7 +106,7 @@ spec = do
     -- -------------------------------------------------------------------------
     describe "events/reconnect_url" $ do
         let exampleEventText =
-                [text|
+                [Multiline.text|
                     {
                         "type": "reconnect_url"
                     }
@@ -120,9 +120,9 @@ spec = do
             exampleEventText `shouldDecodeTo` ReconnectUrl exampleEvent
 
     -- -------------------------------------------------------------------------
-    describe "events/user_typing" $ do
+    describe "events/user_eUserTyping" $ do
         let exampleEventText =
-                [text|
+                [Multiline.text|
                     {
                         "type": "user_typing",
                         "channel": "C02ELGNBH",
@@ -131,8 +131,8 @@ spec = do
                 |]
             exampleEvent =
                 EUserTyping
-                    { _typingChannel = "C02ELGNBH"
-                    , _typingUser = "U024BE7LH"
+                    { _eUserTypingChannel = "C02ELGNBH"
+                    , _eUserTypingUser = "U024BE7LH"
                     }
             
         it "instance FromJSON EUserTyping" $ do
@@ -143,7 +143,7 @@ spec = do
     -- -------------------------------------------------------------------------
     describe "events/message" $ do
         let exampleEventText =
-                [text|
+                [Multiline.text|
                     {
                         "type": "message",
                         "channel": "C2147483705",
@@ -154,13 +154,13 @@ spec = do
                 |]
             exampleEvent =
                 EMessage
-                    { _msgChannel = "C2147483705"
-                    , _msgUser = "U2147483697"
-                    , _msgText = "Hello world"
-                    , _msgTs = "1355517523.000005"
+                    { _eMessageChannel = "C2147483705"
+                    , _eMessageUser = "U2147483697"
+                    , _eMessageText = "Hello world"
+                    , _eMessageTs = "1355517523.000005"
                     }
             
-        it "instance FromJSON EUserTyping" $ do
+        it "instance FromJSON EMessage" $ do
             exampleEventText `shouldDecodeTo` exampleEvent
         it "decodes to proper event" $ do
             exampleEventText `shouldDecodeTo` Message exampleEvent
