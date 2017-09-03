@@ -1,7 +1,7 @@
-resolver: nightly-2017-08-15
+resolver: lts-9.2
 
 packages:
-- '.'
+  - '.'
 
 flags: {}
 

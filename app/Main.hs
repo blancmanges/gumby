@@ -4,28 +4,31 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Main (
     main
 ) where
 
-
-
--- gumby
-import           Network.Slack.RTM
-import           Network.Slack.WebAPI
+--
+import qualified Network.Slack.API.Web.Methods.RtmConnect as Rtm
+import qualified Network.Slack.API.RTM.Event              as Rtm
+import qualified Network.Slack.API.RTM.Request            as Rtm
+import qualified Network.Slack.API.RTM.Lens               as Rtm
+import qualified Network.Slack.API.Web.Lens     as Web
+import qualified Network.Slack.API.Web.Classes  as Web
 
 -- base
-import           Prelude hiding (id)
 import           Control.Monad
 import           System.Environment (lookupEnv)
-import           System.Exit (exitWith, ExitCode(..))
+import           Control.Concurrent
 
 -- text
 import qualified Data.Text as T
+
+-- bytestring
+import qualified Data.ByteString.Lazy as BSL
 
 -- wreq
 import qualified Network.Wreq as Wr
@@ -33,12 +36,10 @@ import           Network.Wreq (param)
 
 -- lens
 import           Control.Lens hiding ((.=))
-import qualified Data.Text.Lazy.Lens as LsLazy
 import qualified Data.Text.Strict.Lens as LsStrict
 
 -- aeson
 import qualified Data.Aeson as Ae
-import           Data.Aeson ((.:), (.=))
 
 -- wuss
 import qualified Wuss as WSc
@@ -48,73 +49,131 @@ import qualified Network.WebSockets as WS
 
 
 
-gumby :: WConnect -> Wr.Options -> WS.Connection -> IO void
-gumby resp reqOpts conn = forever $ do
-    msgFromSlack <- WS.receiveData conn
-    putStrLn $ "got message: " ++ (msgFromSlack ^. LsLazy.utf8 . LsLazy.unpacked)
-
-    case Ae.decode msgFromSlack of
-        Nothing -> putStrLn "  message not recognized"
-        Just x -> actions x
-
-  where
-    actions :: Event -> IO ()
-    actions x = case x of
-        Hello x          -> putStrLn $ "  events/Hello: " ++ show x
-        MessageSent x    -> putStrLn $ "  our message sent: " ++ show x
-        PresenceChange x -> putStrLn $ "  events/presence_change: " ++ show x
-        ReconnectUrl x   -> putStrLn $ "  events/reconnect_url: " ++ show x
-        UserTyping x     -> putStrLn $ "  events/user_typing: " ++ show x
-        UnknownEvent     -> putStrLn $ "  ???"
-        Message x | isGumbyCalledOut (x ^. text) -> do
-                putStrLn $ "  events/message (for Gumby): " ++ show x
-                addressedUser <- addressUserByName (x ^. user)
-                let response = T.concat [ "Jo " , addressedUser , ", wassup?" ]
-                rtmAPICall conn $ 
-                    RSendMessage
-                        { _rSendMessageId = 42
-                        , _rSendMessageChannel = x ^. channel
-                        , _rSendMessageText = response
-                        }
-        Message x | otherwise -> putStrLn $ "  events/message (not for Gumby): " ++ show x
-
-    addressUserByName :: T.Text -> IO T.Text
-    addressUserByName userId = do
-        putStrLn "  ~~> asking about user details"
-        userInfoResp <- webAPIRequest userId reqOpts
-        case userInfoResp of
-            Left err -> do
-                putStrLn $ "  <~~ user query error: " ++ err
-                pure "somebody"
-            Right (userInfo :: WUsersInfo) -> do
-                putStrLn $ "  <~~ resp: " ++ show userInfo
-                putStrLn $ "    userName: " ++ (userInfo ^. name . LsStrict.unpacked)
-                pure $ T.concat
-                    [ "@"
-                    , userInfo ^. name
-                    ]
-
-    isGumbyCalledOut :: T.Text -> Bool
-    isGumbyCalledOut = T.isPrefixOf $ T.concat [ "<@" , _wConnectSelfId resp , ">" ]
+webAPIEndpoint :: String -> String
+webAPIEndpoint = ("https://slack.com/api/" ++)
 
 
 main :: IO ()
 main = do
     Just slackSecretApiToken <- (fmap T.pack) <$> lookupEnv "SLACK_SECRET_API_TOKEN"
-    let reqOpts = Wr.defaults & param "token" .~ [slackSecretApiToken]
 
-    rtmConn <- webAPIRequest () reqOpts
+    rtmResp <- do
+        response <- Wr.getWith
+            (Wr.defaults & param "token" .~ [slackSecretApiToken])
+            (webAPIEndpoint "rtm.connect")
+        let Right (x :: Rtm.RtmConnectResp) = Ae.eitherDecode $ response ^. Wr.responseBody
+        pure x
 
-    case rtmConn of
-        Left err -> do
-            putStrLn $ "conn error: " ++ err
-            exitWith $ ExitFailure 1
-        Right (resp :: WConnect) ->
-            WSc.runSecureClient
-                (resp ^. urlHost . LsStrict.unpacked)
-                rtmHostPort
-                (resp ^. urlPath . LsStrict.unpacked)
-                (gumby resp reqOpts)
+    WSc.runSecureClient
+        (rtmResp  ^. Web.urlHost . LsStrict.unpacked)
+        rtmHostPort
+        (rtmResp ^. Web.urlPath . LsStrict.unpacked)
+        (startBots slackSecretApiToken)
+
   where
-    rtmUrl = "https://slack.com/api/rtm.connect"
     rtmHostPort = 443
+
+
+
+gumbyWrap ::
+     Chan BSL.ByteString
+  -> Chan BSL.ByteString
+  -> Chan (Wr.Options, String, Chan BSL.ByteString)
+  -> IO void
+gumbyWrap chIncoming chToRtm chToWeb = gumby getRtmEvent sendRtmRequest callWebMethod
+  where
+    getRtmEvent = Ae.eitherDecode <$> readChan chIncoming
+    sendRtmRequest = writeChan chToRtm . Ae.encode
+    callWebMethod ::
+         Web.Method req resp
+      => req
+      -> IO (Either String resp)
+    callWebMethod req = do
+        chWebResponse <- newChan
+        writeChan chToWeb (reqOpts, httpEndpoint, chWebResponse)
+        resp <- readChan chWebResponse
+        pure $ Ae.eitherDecode resp
+      where
+        httpEndpoint = Web.endpoint req
+        reqOpts = Web.urlEncode req Wr.defaults
+
+
+
+gumby ::
+     IO (Either String Rtm.Event)
+  -> (Rtm.Request -> IO ())
+  -> (forall req resp. Web.Method req resp => req -> IO (Either String resp))
+  -> IO void
+gumby getRtmEvent sendRtmRequest callWebMethod = forever $ do
+    rtmInput <- getRtmEvent
+    case rtmInput of
+        Left err -> pure ()
+        Right event -> go event
+  where
+    go :: Rtm.Event -> IO ()
+    go (Rtm.Message msg)
+      | msg ^. Rtm.text == "hi gumby"
+      = sendRtmRequest . Rtm.SendMessage $ Rtm.RSendMessage
+          { Rtm._rSendMessageId = 123
+          , Rtm._rSendMessageChannel = msg ^. Rtm.channel
+          , Rtm._rSendMessageText = "ohai thar"}
+      | otherwise
+      = do
+        putStrLn $ "got message: " ++ msg ^. Rtm.text . LsStrict.unpacked
+        return ()
+    go _ = return ()
+
+
+
+startBots :: T.Text -> WS.Connection -> IO void
+startBots slackSecretApiToken conn = do
+    chFromRtm <- newChan
+    chToRtm <- newChan
+    chToWeb <- newChan
+
+    chFromBots <- newChan
+    chToGumby <- newChan
+
+    forkIO $ thToBots chFromRtm [chToGumby]
+
+    forkIO $ gumbyWrap chToGumby chToRtm chToWeb
+
+    -- slack comm: senders
+    forkIO $ thToWeb slackSecretApiToken chToWeb
+    forkIO $ thToRtm conn chToRtm
+
+    -- slack comm: receivers
+    thFromRtm conn chFromRtm
+    -- TODO: write a loop that waits for EXIT message
+
+
+
+-- TODO: drop, use dupChan instead
+thToBots :: Chan BSL.ByteString -> [Chan BSL.ByteString] -> IO void
+thToBots incomingChan outgoingChans = forever $ do
+    msg <- readChan incomingChan
+    forM_ outgoingChans $ \outgoingChan -> writeChan outgoingChan msg
+
+
+
+thFromRtm :: WS.Connection -> Chan BSL.ByteString -> IO void
+thFromRtm conn chFromRtm = forever $ do
+    msgFromSlack <- WS.receiveData conn
+    writeChan chFromRtm msgFromSlack
+
+
+
+thToRtm :: WS.Connection -> Chan BSL.ByteString -> IO void
+thToRtm conn chToRtm = forever $ do
+    msgToSlack <- readChan chToRtm
+    WS.sendTextData conn msgToSlack
+
+
+
+thToWeb :: T.Text -> Chan (Wr.Options, String, Chan BSL.ByteString) -> IO void
+thToWeb slackSecretApiToken chToWeb = forever $ do
+    (reqOptions, endpoint, chReply) <- readChan chToWeb
+    reply <- Wr.getWith
+        (reqOptions & param "token" .~ [slackSecretApiToken])
+        (webAPIEndpoint endpoint)
+    writeChan chReply $ reply ^. Wr.responseBody

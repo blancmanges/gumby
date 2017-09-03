@@ -1,6 +1,6 @@
 name: gumby
-version: '0.0.0.1'
-synopsis: Mr. Gumby---a stupid bot.
+version: '0.0.0.2'
+synopsis: Mr. Gumby---a stupid slack bot.
 category: Network
 author: Konrad Gądek
 maintainer: kgadek@gmail.com
@@ -14,15 +14,15 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
-      - autoexporter
-      - aeson
-      - neat-interpolation
-      - lens
-      - bytestring
-      - text
-      - wreq
-      - websockets
-      - uri-bytestring
+    - autoexporter
+    - aeson
+    - neat-interpolation
+    - lens
+    - bytestring
+    - text
+    - wreq
+    - websockets
+    - uri-bytestring
 
 executables:
   gumby:
