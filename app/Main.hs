@@ -18,6 +18,9 @@ import qualified Network.Slack.API.RTM.Request            as Rtm
 import qualified Network.Slack.API.RTM.Lens               as Rtm
 import qualified Network.Slack.API.Web.Lens     as Web
 import qualified Network.Slack.API.Web.Classes  as Web
+import qualified Network.Slack.API.Web.Request  as WebReq
+import qualified Network.Slack.API.Web.Response as WebResp
+import           Network.Slack.API.Web.Methods.UsersList
 
 -- base
 import           Control.Monad
@@ -26,6 +29,10 @@ import           Control.Concurrent
 
 -- text
 import qualified Data.Text as T
+
+-- containers
+import           Data.Set (Set)
+import qualified Data.Set as Set
 
 -- bytestring
 import qualified Data.ByteString.Lazy as BSL
@@ -37,6 +44,7 @@ import           Network.Wreq (param)
 -- lens
 import           Control.Lens hiding ((.=))
 import qualified Data.Text.Strict.Lens as LsStrict
+import qualified Data.ByteString.Lazy.Lens as BSL
 
 -- aeson
 import qualified Data.Aeson as Ae
@@ -61,6 +69,7 @@ main = do
         response <- Wr.getWith
             (Wr.defaults & param "token" .~ [slackSecretApiToken])
             (webAPIEndpoint "rtm.connect")
+        -- putStrLn $ "resp:" ++ (response ^. Wr.responseBody . BSL.unpackedChars)
         let Right (x :: Rtm.RtmConnectResp) = Ae.eitherDecode $ response ^. Wr.responseBody
         pure x
 
@@ -117,6 +126,23 @@ gumby getRtmEvent sendRtmRequest callWebMethod = forever $ do
           { Rtm._rSendMessageId = 123
           , Rtm._rSendMessageChannel = msg ^. Rtm.channel
           , Rtm._rSendMessageText = "ohai thar"}
+      | msg ^. Rtm.text == "show timezones"
+      = do
+          result <- callWebMethod (UsersListReq { _usersListReqPresence = False })
+          let (ourReply :: String) = case result of
+                Left _         -> "???"
+                Right (UsersListResp userList) ->
+                    let allTzs = unlines . map showTz . Set.toList . Set.fromList . map getTzs $ userList
+                        getTzs x = (x ^. Web.tzLabel, x ^. Web.tzOffset)
+                        showTz (label, offset) = show offset ++ " -- " ++ show label
+                    in  allTzs
+
+          -- putStrLn $ show result
+          sendRtmRequest . Rtm.SendMessage $ Rtm.RSendMessage
+            { Rtm._rSendMessageId = 456
+            , Rtm._rSendMessageChannel = msg ^. Rtm.channel
+            , Rtm._rSendMessageText = ourReply ^. LsStrict.packed
+            }
       | otherwise
       = do
         putStrLn $ "got message: " ++ msg ^. Rtm.text . LsStrict.unpacked
@@ -159,6 +185,7 @@ thToBots incomingChan outgoingChans = forever $ do
 thFromRtm :: WS.Connection -> Chan BSL.ByteString -> IO void
 thFromRtm conn chFromRtm = forever $ do
     msgFromSlack <- WS.receiveData conn
+    -- putStrLn $ "rtm:" ++ (msgFromSlack ^. BSL.unpackedChars)
     writeChan chFromRtm msgFromSlack
 
 
@@ -176,4 +203,5 @@ thToWeb slackSecretApiToken chToWeb = forever $ do
     reply <- Wr.getWith
         (reqOptions & param "token" .~ [slackSecretApiToken])
         (webAPIEndpoint endpoint)
+    -- putStrLn $ "web:" ++ (reply ^. Wr.responseBody . BSL.unpackedChars)
     writeChan chReply $ reply ^. Wr.responseBody

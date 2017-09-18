@@ -7,13 +7,12 @@
 module Network.Slack.API.Web.Response where
 
 --
-import           Network.Slack.API.Web.Methods.RtmConnect
-import           Network.Slack.API.Web.Methods.UsersInfo
+import           Network.Slack.API.Web.Methods
 
 
 
 data Response
   = RtmConnect RtmConnectResp
   | UsersInfo  UsersInfoResp
-  | Error      String
+  | UsersList  UsersListResp
   deriving (Show)

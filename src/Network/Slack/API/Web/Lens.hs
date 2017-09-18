@@ -13,8 +13,8 @@
 module Network.Slack.API.Web.Lens where
 
 --
-import           Network.Slack.API.Web.Methods.RtmConnect
-import           Network.Slack.API.Web.Methods.UsersInfo
+import           Network.Slack.API.Web.Methods
+import           Network.Slack.API.Web.Objects
 
 -- base
 import           Prelude hiding (id)
@@ -26,3 +26,6 @@ import           Control.Lens
 
 makeFields ''RtmConnectResp
 makeFields ''UsersInfoReq
+makeFields ''UsersListReq
+makeFields ''UsersListResp
+makeFields ''User

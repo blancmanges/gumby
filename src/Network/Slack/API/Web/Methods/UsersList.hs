@@ -6,7 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Slack.API.Web.Methods.UsersInfo where
+module Network.Slack.API.Web.Methods.UsersList where
 
 --
 import           Network.Slack.API.Web.Classes
@@ -28,25 +28,29 @@ import           Control.Lens
 -- wreq
 import           Network.Wreq (param)
 
+-- http-api-data
+import qualified Web.HttpApiData as WData
 
 
-data UsersInfoReq
-  = UsersInfoReq
-      { _usersInfoReqUserId :: Text }
+
+data UsersListReq
+  = UsersListReq
+      { _usersListReqPresence :: Bool }
   deriving (Show)
 
-instance UrlEncode UsersInfoReq where
-  urlEncode req opts = opts & param "user" .~ [_usersInfoReqUserId req]
+instance UrlEncode UsersListReq where
+  urlEncode req opts =
+      opts & param "presence" .~ [WData.toUrlPiece . _usersListReqPresence $ req]
 
 
 
-newtype UsersInfoResp = UsersInfoResp User
+newtype UsersListResp = UsersListResp { _usersListRespResp :: [User] }
   deriving (Show)
 
-instance FromJSON UsersInfoResp where
-  parseJSON = Ae.withObject "UsersInfoResp" $ \o -> do
+instance FromJSON UsersListResp where
+  parseJSON = Ae.withObject "UsersListResp" $ \o -> do
     guard =<< o .: "ok"
-    UsersInfoResp <$> o .: "user"
+    UsersListResp <$> o .: "members"
 
-instance Method UsersInfoReq UsersInfoResp where
-  endpoint _ = "users.info"
+instance Method UsersListReq UsersListResp where
+  endpoint _ = "users.list"

@@ -18,8 +18,8 @@ import qualified Network.Wreq as Wr
 
 class UrlEncode req where
   urlEncode :: req -> Wr.Options -> Wr.Options
-  
-  
+
+
 
 class (UrlEncode req, FromJSON resp)
       => Method req resp

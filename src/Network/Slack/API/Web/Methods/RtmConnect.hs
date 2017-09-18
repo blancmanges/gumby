@@ -52,8 +52,7 @@ data RtmConnectResp
 
 instance FromJSON RtmConnectResp where
   parseJSON = Ae.withObject "RtmConnectResp" $ \o -> do
-    ok <- o .: "ok"
-    guard ok
+    guard =<< o .: "ok"
 
     url      <- o .: "url"
     self     <- o .: "self"
@@ -65,10 +64,10 @@ instance FromJSON RtmConnectResp where
     Just  urlPath   <- pure $ urlParsed ^? pathL . LsStrict.utf8
 
     pure RtmConnectResp
-      { _rtmConnectRespUrl = urlParsed
-      , _rtmConnectRespUrlHost = urlHost
-      , _rtmConnectRespUrlPath = urlPath
-      , _rtmConnectRespSelfId = selfId
+      { _rtmConnectRespUrl      = urlParsed
+      , _rtmConnectRespUrlHost  = urlHost
+      , _rtmConnectRespUrlPath  = urlPath
+      , _rtmConnectRespSelfId   = selfId
       , _rtmConnectRespSelfName = selfName
       } 
 

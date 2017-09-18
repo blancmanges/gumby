@@ -7,12 +7,12 @@
 module Network.Slack.API.Web.Request where
 
 --
-import           Network.Slack.API.Web.Methods.RtmConnect
-import           Network.Slack.API.Web.Methods.UsersInfo
+import           Network.Slack.API.Web.Methods
 
 
 
 data Request
   = RtmConnect RtmConnectReq
   | UsersInfo  UsersInfoReq
+  | UsersList  UsersListReq
   deriving (Show)
