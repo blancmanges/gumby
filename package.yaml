@@ -41,6 +41,10 @@ executables:
       - text
       - bytestring
       - containers
+      - monad-logger
+      - monad-control
+      - mtl
+      - text-show
 
 tests:
   gumby-test:
