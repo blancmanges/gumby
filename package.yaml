@@ -45,6 +45,9 @@ executables:
       - monad-control
       - mtl
       - text-show
+      - time
+      - tzdata
+      - tz
 
 tests:
   gumby-test:

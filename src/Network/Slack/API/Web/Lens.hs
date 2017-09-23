@@ -15,6 +15,7 @@ module Network.Slack.API.Web.Lens where
 --
 import           Network.Slack.API.Web.Methods
 import           Network.Slack.API.Web.Objects
+import           Network.Slack.API.RTM.Event
 
 -- base
 import           Prelude hiding (id)
@@ -29,3 +30,4 @@ makeFields ''UsersInfoReq
 makeFields ''UsersListReq
 makeFields ''UsersListResp
 makeFields ''User
+makePrisms ''Event
