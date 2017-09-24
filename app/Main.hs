@@ -9,6 +9,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module Main (
     main
@@ -35,6 +37,10 @@ import           Control.Concurrent
 
 -- mtl
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Monad.Reader
+
+-- transformers
+import           Control.Monad.Trans.Maybe
 
 -- text
 import           Data.Text (Text)
@@ -64,8 +70,9 @@ import qualified Network.WebSockets as WS
 -- monad-logger
 import           Control.Monad.Logger (
     MonadLogger, LoggingT
-  , runStderrLoggingT, logDebug, logInfo, logError
+  , runStderrLoggingT, runChanLoggingT, unChanLoggingT, logDebug, logInfo, logError
   )
+import qualified Control.Monad.Logger as Logger
 
 -- text-show
 import           TextShow (showt)
@@ -85,69 +92,248 @@ import qualified Data.Time.Zones.All as TimeZones
 
 
 
-main :: IO ()
-main = runStderrLoggingT (handleErrors =<< runExceptT go)
+-- |The type used by monad-logger for inter-process logging.
+type LoggerData = (Logger.Loc, Logger.LogSource, Logger.LogLevel, Logger.LogStr)
+
+-- |Config of the app.
+data Config
+  = Config
+      { _cSecretSlackApiToken :: Text
+      , _cLoggingChan :: Chan LoggerData
+      }
+
+-- |App state. Includes config and app state.
+data AppState
+  = AppState
+      { _asConfig      :: Config
+      }
+
+-- |RTM app state. Includes config, app state, data from Slack, and other runtime state
+-- for the bot.
+data RtmAppState
+  = RtmAppState
+      { _rasAppState   :: AppState
+      , _rasBotId      :: Text
+      , _rasConn       :: WS.Connection
+      , _rasChFromRtm  :: Chan BSL.ByteString
+      , _rasChToRtm    :: Chan BSL.ByteString
+      , _rasChToWeb    :: Chan (Wr.Options, String, Chan BSL.ByteString)
+      , _rasChFromBots :: Chan Void
+      , _rasChToGumby  :: Chan BSL.ByteString
+      }
+
+data BotState
+  = BotState
+      { _botReallyReallyNeedsRtmAppState :: RtmAppState
+      , _botCallout :: Text
+      , _botRtmEventGetter :: forall m. MonadIO m => m (Either String Rtm.Event)
+      , _botRtmRequestSender :: forall m. MonadIO m => Rtm.Request -> m ()
+      , _botWebMethodCaller
+          :: forall m req resp. (MonadIO m, Web.Method req resp)
+          => req
+          -> m (Either String resp)
+      }
+
+makeClassy ''Config
+makeClassy ''AppState
+makeClassy ''RtmAppState
+makeClassy ''BotState
+
+instance HasConfig AppState where
+    config = asConfig
+
+instance HasConfig RtmAppState where
+    config = rasAppState . asConfig
+
+instance HasAppState RtmAppState where
+    appState = rasAppState
+
+type IsBotMonad m = (MonadIO m, MonadReader BotState m)
+
+type AppMonad = ReaderT AppState (ExceptT GumbyAppErr (LoggingT IO))
+-- type RtmAppMonad = ReaderT RtmAppState (ExceptT GumbyAppErr (LoggingT IO))
+-- type BotMonad = ReaderT BotState (ExceptT GumbyAppErr (LoggingT IO))
+
+getRtmEvent :: IsBotMonad m => m (Either String Rtm.Event)
+getRtmEvent = join $ view botRtmEventGetter
+
+sendRtmRequest :: IsBotMonad m => Rtm.Request -> m ()
+sendRtmRequest rq = do
+    sender <- view botRtmRequestSender
+    sender rq
+
+runSimpleCommand :: forall m. IsBotMonad m => Text -> (Rtm.EMessage -> Text -> m ()) -> m ()
+runSimpleCommand cmdPrefix callback = do
+    res <- runMaybeT $ do
+        rtmInput <- getRtmEvent
+        msg <- continueWithValue (rtmInput ^? _Right . Web._Message)
+        cmd <- continueWithValue . (T.strip <$>) . T.stripPrefix cmdPrefix . (^. Rtm.text) $ msg
+        pure (msg, cmd)
+    case res of
+        Nothing -> pure ()
+        Just (msg, cmd) -> callback msg cmd
   where
-    rtmHostPort = 443
+    continueWithValue :: Maybe a -> MaybeT m a
+    continueWithValue = MaybeT . pure
 
-    handleErrors (Right ()) = $(logInfo)  "Program completed successfully"
-    handleErrors (Left   x) = $(logError) ("Program rejected: " <> showt x)
 
-    go :: ExceptT GumbyAppErr (LoggingT IO) ()
-    go = do
 
-        (slackSecretApiToken :: Text) <- do
+
+main :: IO ()
+main = bootstrapStage1
+  where
+
+    -- |Gather and process result of running of the application.
+    -- Resource handling should happen here.
+    handleAppResult (Right _) = $(logInfo)  "Program completed successfully"
+    handleAppResult (Left  x) = $(logError) ("Program rejected: " <> showt x)
+
+    -- |Bootstrap: initialize logging and bottom part of monadic stack.
+    bootstrapStage1 :: IO void
+    bootstrapStage1 = do
+        chanLogs <- newChan
+        _ <- forkIO . runChanLoggingT chanLogs $
+            runExceptT (bootstrapStage2 chanLogs) >>= handleAppResult
+        vacuous . runStderrLoggingT $ unChanLoggingT chanLogs
+
+    -- |Bootstrap: read config.
+    bootstrapStage2 :: Chan LoggerData -> ExceptT GumbyAppErr (LoggingT IO) WS.Connection
+    bootstrapStage2 _cLoggingChan = do
+        _cSecretSlackApiToken <- do
             $(logDebug) "Reading the SLACK_SECRET_API_TOKEN from env vars"
             query <- liftIO $ lookupEnv "SLACK_SECRET_API_TOKEN"
             case query of
                 Nothing    -> throwError $ EnvVarMissing "SLACK_SECRET_API_TOKEN"
                 Just value -> pure . T.pack $ value
 
+        runReaderT bootstrapStage3 Config{..}
+
+    bootstrapStage3 :: ReaderT Config (ExceptT GumbyAppErr (LoggingT IO)) WS.Connection
+    bootstrapStage3 = do
+        let configToAppState _asConfig = AppState{..}
+        withReaderT configToAppState app
+
+-- Thread structure:
+--
+--     -+--- logging to stderr
+--       \
+--        +---app---+--- RTM listener
+--                   \
+--                    +--- Web sender
+--                    +--- RTM sender
+--                    +--- the bot
+--
+app :: AppMonad WS.Connection
+app = rtmBootstrapStage1
+  where
+    rtmHostPort = 443
+
+    rtmBootstrapStage1 :: AppMonad WS.Connection
+    rtmBootstrapStage1 = do
         (rtmApiResponse :: Rtm.RtmConnectResp) <- do
-            $(logDebug) "Bootstrapping RTM connection to Slack"
+            $(logDebug) "Getting websocket URL"
+            token <- view (config . cSecretSlackApiToken)
             response <- liftIO $ Wr.getWith
-                (Wr.defaults & param "token" .~ [slackSecretApiToken])
-                (webAPIEndpointUrl "rtm.connect")
-            let responseJSON = response ^. Wr.responseBody
-                decodedJSON = Ae.eitherDecode responseJSON
-            case decodedJSON of
-                Left e  -> throwError $ JsonDecodeError e responseJSON
+                            (Wr.defaults & param "token" .~ [token])
+                            (webAPIEndpointUrl "rtm.connect")
+            let responseBody = response ^. Wr.responseBody
+            case Ae.eitherDecode responseBody of
+                Left  e -> throwError $ JsonDecodeError e responseBody
                 Right x -> pure x
 
         let wsUrlHost = rtmApiResponse ^. Web.urlHost . LsStrict.unpacked
             wsUrlPath = rtmApiResponse ^. Web.urlPath . LsStrict.unpacked
 
+        -- TODO: handle async exception from websockets (socket closed)
         $(logDebug) "Starting websocket process"
-        control $ \runInIO ->
-            -- TODO: handle async exception from websockets (socket closed)
-            WSc.runSecureClient wsUrlHost rtmHostPort wsUrlPath
-                (runInIO . initiateBots slackSecretApiToken (rtmApiResponse ^. Web.selfId))
+        control $ \runInBase ->
+            WSc.runSecureClient
+                wsUrlHost rtmHostPort wsUrlPath
+                (runInBase . rtmBootstrapStage2 rtmApiResponse)
+
+    rtmBootstrapStage2 :: Rtm.RtmConnectResp -> WS.Connection -> AppMonad void
+    rtmBootstrapStage2 rtmApiResponse _rasConn = do
+        _rasConfig <- view config
+
+        $(logDebug) "Creating inter-app communication chans"
+        _rasChFromRtm  <- liftIO newChan
+        _rasChToRtm    <- liftIO newChan
+        _rasChToWeb    <- liftIO newChan
+        _rasChFromBots <- liftIO newChan
+        _rasChToGumby  <- liftIO newChan
+
+        let _rasBotId = rtmApiResponse ^. Web.selfId
+            appStateToRtmAppState _rasAppState = RtmAppState{..}
+        withReaderT appStateToRtmAppState rtmBootstrapStage3
+
+    -- TODO: async handlers
+    rtmBootstrapStage3 :: ReaderT RtmAppState (ExceptT GumbyAppErr (LoggingT IO)) void
+    rtmBootstrapStage3 = do
+        chFromRtm <- view rasChFromRtm
+        chToGumby <- view rasChToGumby
+        botId <- view rasBotId
+        rtmState <- view rtmAppState
+        chanLogs <- view cLoggingChan
+        chToRtm <- view rasChToRtm
+        chToWeb <- view rasChToWeb
+        conn <- view rasConn
+        token <- view cSecretSlackApiToken
+
+        $(logDebug) "Spawning thread: copy messages from RTM to all bots"
+        _ <- liftIO . forkIO $ thToBots chFromRtm [chToGumby]
+
+        $(logDebug) "Spawning thread: gumby"
+        _ <- liftIO . forkIO . runChanLoggingT chanLogs $ do
+            let _botReallyReallyNeedsRtmAppState = rtmState
+
+                _botRtmEventGetter :: forall m. MonadIO m => m (Either String Rtm.Event)
+                _botRtmEventGetter = Ae.eitherDecode <$> liftIO (readChan chToGumby)
+
+                _botRtmRequestSender :: forall m. MonadIO m => Rtm.Request -> m ()
+                _botRtmRequestSender = liftIO . writeChan chToRtm . Ae.encode
+                _botWebMethodCaller :: forall m req resp. (MonadIO m, Web.Method req resp)
+                  => req
+                  -> m (Either String resp)
+                _botWebMethodCaller req = do
+                    let httpEndpoint = Web.endpoint req
+                        reqOpts = Web.urlEncode req Wr.defaults
+                    chWebResponse <- liftIO $ newChan
+                    liftIO $ writeChan chToWeb (reqOpts, httpEndpoint, chWebResponse)
+                    resp <- liftIO $ readChan chWebResponse
+                    pure $ Ae.eitherDecode resp
+
+                _botCallout = "<@" <> botId <> ">"
+
+            res <- runExceptT $ runReaderT (vacuous gumby) BotState{..}
+            -- TODO: oh snap, get rid of RecordWildCards :< no error ^^^^ here?…
+
+            handleRtmAppResult res
+
+        -- slack comm: senders
+        $(logDebug) "Spawnig thread: Web API sender"
+        _ <- liftIO . forkIO $ thToWeb token chToWeb
+        $(logDebug) "Spawnig thread: RTM API sender"
+        _ <- liftIO . forkIO $ thToRtm conn chToRtm
+
+        -- slack comm: receivers
+        vacuous $ thFromRtm conn chFromRtm
+        -- TODO: write a loop that waits for EXIT message -- https://stackoverflow.com/a/45846292/547223
+
+    handleRtmAppResult :: Either GumbyAppErr Void -> LoggingT IO ()
+    handleRtmAppResult (Right v) = absurd v
+    handleRtmAppResult (Left err) = $(logError) ("RTM app rejected: " <> showt err)
 
 
-gumby
-  :: forall m void. MonadIO m
-  => T.Text
-  -> m (Either String Rtm.Event)
-  -> (Rtm.Request -> m ())
-  -> (forall req resp. Web.Method req resp => req -> m (Either String resp))
-  -> m void
-gumby botName getRtmEvent sendRtmRequest _callWebMethod = forever $ do
-    rtmInput <- getRtmEvent
-    case rtmInput of
-        Right (Rtm.Message msg) -> do
-            let mMessage = msg ^. Rtm.text . to ((T.strip <$>) . T.stripPrefix slackEncodedCalloutPrefix)
-            maybe
-                (pure ())
-                (go msg)
-                mMessage
-        _ -> pure ()
+
+gumby :: forall m void. IsBotMonad m => m void
+gumby = do
+    (callout :: Text) <- view botCallout
+    forever $ runSimpleCommand callout go
   where
-    slackEncodedCalloutPrefix = "<@" <> botName <> ">"
-
     genericErrReply = "(intensively thinking in confusion)…        Hello!"
 
     go :: Rtm.EMessage -> Text -> m ()
-    go msg (T.strip . T.toLower -> hi)
+    go msg (T.toLower -> hi)
       | hi == "hello" || hi == "hi" || hi == "ohai"
       = sendRtmRequest . Rtm.SendMessage $ Rtm.RSendMessage
           { Rtm._rSendMessageId = 123
@@ -212,60 +398,7 @@ gumby botName getRtmEvent sendRtmRequest _callWebMethod = forever $ do
 
 
 
-startBotWithChans
-  :: forall m void. MonadIO m
-  => T.Text
-  -> Chan BSL.ByteString
-  -> Chan BSL.ByteString
-  -> Chan (Wr.Options, String, Chan BSL.ByteString)
-  -> m void
-startBotWithChans botName chIncoming chToRtm chToWeb =
-    vacuous $ gumby botName getRtmEvent sendRtmRequest callWebMethod
-  where
-    getRtmEvent = Ae.eitherDecode <$> liftIO (readChan chIncoming)
-    sendRtmRequest = liftIO . writeChan chToRtm . Ae.encode
-
-    callWebMethod :: (Web.Method req resp, MonadIO m) => req -> m (Either String resp)
-    callWebMethod req = do
-        chWebResponse <- liftIO $ newChan
-        liftIO $ writeChan chToWeb (reqOpts, httpEndpoint, chWebResponse)
-        resp <- liftIO $ readChan chWebResponse
-        pure $ Ae.eitherDecode resp
-      where
-        httpEndpoint = Web.endpoint req
-        reqOpts = Web.urlEncode req Wr.defaults
-
-
-
-initiateBots :: (MonadIO m, MonadLogger m) => T.Text -> T.Text -> WS.Connection -> m void
-initiateBots slackSecretApiToken botName conn = do
-    -- TODO: initialize comm chans *before* websocket conn is created in hope of recreating websockets
-    $(logDebug) "Creating comm chans"
-
-    chFromRtm <- liftIO newChan
-    chToRtm <- liftIO newChan
-    chToWeb <- liftIO newChan
-
-    _chFromBots <- liftIO newChan
-    chToGumby <- liftIO newChan
-
-    $(logDebug) "Spawning thread: copy messages from RTM to all bots"
-    liftIO . forkIO $ thToBots chFromRtm [chToGumby]
-
-    $(logDebug) "Spawning thread: actual bot"
-    liftIO . forkIO $ startBotWithChans botName chToGumby chToRtm chToWeb
-
-    -- slack comm: senders
-    $(logDebug) "Spawnig thread: Web API sender"
-    liftIO . forkIO $ thToWeb slackSecretApiToken chToWeb
-    $(logDebug) "Spawnig thread: RTM API sender"
-    liftIO . forkIO $ thToRtm conn chToRtm
-
-    -- slack comm: receivers
-    vacuous $ thFromRtm conn chFromRtm
-    -- TODO: write a loop that waits for EXIT message
-
-
+-- TODO: bounded chans
 
 -- TODO: drop, use dupChan instead
 thToBots :: (MonadIO m)
@@ -301,9 +434,12 @@ thToWeb slackSecretApiToken chToWeb = forever $ do
         (webAPIEndpointUrl endpoint)
     -- putStrLn $ "web:" ++ (reply ^. Wr.responseBody . BSL.unpackedChars)
     -- $(logDebug) ("thToWeb: got reply: " <> (reply ^. Wr.responseBody . to showt))
-    writeChan chReply $ reply ^. Wr.responseBody
+    writeChan chReply (reply ^. Wr.responseBody)
 
 
 
 webAPIEndpointUrl :: String -> String
 webAPIEndpointUrl = ("https://slack.com/api/" ++)
+
+
+-- TODO: Dockerize

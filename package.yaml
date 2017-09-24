@@ -29,6 +29,7 @@ library:
 executables:
   gumby:
     main: Main.hs
+    ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
     source-dirs: app
     dependencies:
       - gumby
@@ -48,6 +49,7 @@ executables:
       - time
       - tzdata
       - tz
+      - transformers
 
 tests:
   gumby-test:
