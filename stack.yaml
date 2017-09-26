@@ -1,4 +1,4 @@
-resolver: nightly-2017-09-18
+resolver: lts-9.6
 
 packages:
   - '.'
@@ -6,3 +6,16 @@ packages:
 flags: {}
 
 extra-package-dbs: []
+
+docker:
+  enable: true
+  repo: fpco/stack-build
+
+image:
+  containers:
+    - base: "fpco/ubuntu-with-libgmp:latest"
+      name: "kgadek"
+      executables:
+        - gumby
+      entrypoints:
+        - gumby
