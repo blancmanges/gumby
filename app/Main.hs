@@ -34,9 +34,13 @@ import           Data.Void
 import           Control.Monad.IO.Class
 import           System.Environment (lookupEnv)
 import           Control.Concurrent
+import           Control.Exception
+import           System.IO (hPutStrLn, stderr)
+import           Text.Read
+import           Data.Function
 
 -- mtl
-import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Monad.Except (MonadError, ExceptT, runExceptT, throwError)
 import           Control.Monad.Reader
 
 -- transformers
@@ -75,10 +79,11 @@ import           Control.Monad.Logger (
 import qualified Control.Monad.Logger as Logger
 
 -- text-show
-import           TextShow (showt)
+import           TextShow (TextShow, showt)
+import qualified TextShow as TS
 
 -- monad control
-import           Control.Monad.Trans.Control (control)
+import           Control.Monad.Trans.Control (MonadBaseControl, StM, control)
 
 -- time
 import qualified Data.Time as Time
@@ -90,17 +95,49 @@ import qualified Data.Time.Zones.DB as TimeZones
 import qualified Data.Time.Zones as TimeZones
 import qualified Data.Time.Zones.All as TimeZones
 
+-- data-default
+import           Data.Default (Default, def)
+
+
+
+-- TODO: properly handle asyncs
+--     [Debug] Reading the SLACK_SECRET_API_TOKEN from env vars @(main:Main app/Main.hs:283:23)
+--     [Debug] Reading WEBSOCKET_PING_TIME from env variables: 5 @(main:Main app/Main.hs:225:23)
+--     [Debug] Getting websocket URL @(main:Main app/Main.hs:313:15)
+--     [Debug] Starting websocket process @(main:Main app/Main.hs:327:11)
+--     [Debug] Starting websocket pinger thread @(main:Main app/Main.hs:344:11)
+--     [Debug] Creating inter-app communication chans @(main:Main app/Main.hs:348:11)
+--     [Debug] Spawning thread: copy messages from RTM to all bots @(main:Main app/Main.hs:373:11)
+--     [Debug] Spawning thread: gumby @(main:Main app/Main.hs:377:11)
+--     [Debug] Spawning thread: Web API sender @(main:Main app/Main.hs:406:11)
+--     [Debug] Spawning thread: RTM API sender @(main:Main app/Main.hs:410:11)
+--     gumby: ParseException "not enough input"
+--     [Error] Finished thread: thFromRtm @(main:Main app/Main.hs:527:30)
+--     [Error] WSc.runSecureClient killed by exception @(main:Main app/Main.hs:338:35)
+--     LOGGER ERROR - THREAD KILLED: running runStderrLoggingT
+--     gumby: thread blocked indefinitely in an MVar operation
 
 
 -- |The type used by monad-logger for inter-process logging.
 type LoggerData = (Logger.Loc, Logger.LogSource, Logger.LogLevel, Logger.LogStr)
+
+
 
 -- |Config of the app.
 data Config
   = Config
       { _cSecretSlackApiToken :: Text
       , _cLoggingChan :: Chan LoggerData
+      , _cWebsocketPingTime :: WebsocketPingTime
       }
+
+newtype WebsocketPingTime = WebsocketPingTime { _unwrap :: Int }
+makeClassy ''WebsocketPingTime
+makePrisms ''WebsocketPingTime
+instance Read WebsocketPingTime where readPrec = WebsocketPingTime <$> readPrec
+instance Default WebsocketPingTime where def = WebsocketPingTime 30
+
+
 
 -- |App state. Includes config and app state.
 data AppState
@@ -177,6 +214,61 @@ runSimpleCommand cmdPrefix callback = do
     continueWithValue = MaybeT . pure
 
 
+getEnvVarWithDefaults
+    :: (MonadIO m, TextShow a, Default b, MonadLogger m, Read a, MonadError GumbyAppErr m)
+    => Iso' b a -> String -> m b
+getEnvVarWithDefaults isoUnwrap envVarKey = do
+    query <- liftIO $ lookupEnv envVarKey
+    case query of
+
+        Nothing -> do
+            let val = def
+                unwrapped = view isoUnwrap val
+                logmsg = [ TS.fromText "Env var"
+                         , TS.fromString envVarKey
+                         , TS.fromText "does not exist, using default value:"
+                         , TS.fromText . showt $ unwrapped
+                         ]
+            $(logDebug) (TS.toText $ TS.unwordsB logmsg)
+            pure val
+
+        Just envVarValue -> do
+            case readMaybe envVarValue of
+                Just parsed -> do
+                    let logmsg = [ TS.fromText "Reading"
+                                 , TS.fromString envVarKey
+                                 , TS.fromText "from env variables:"
+                                 , TS.fromText . showt $ parsed]
+                        wrapped = view (from isoUnwrap) parsed
+                    $(logDebug) (TS.toText $ TS.unwordsB logmsg)
+                    pure wrapped
+
+                Nothing -> do
+                    let logmsg = [ TS.fromText "Env var"
+                                 , TS.fromString envVarKey
+                                 , TS.fromText "cannot be converted to proper value:"
+                                 , TS.fromString envVarValue
+                                 ]
+                    $(logError) (TS.toText $ TS.unwordsB logmsg)
+                    throwError $ EnvVarUnreadable envVarKey
+
+
+
+runReaderTWith :: r -> ReaderT r m a -> m a
+runReaderTWith = flip runReaderT
+
+
+
+controlLift2
+  :: (MonadIO m, MonadBaseControl IO m)
+  => (IO (StM m a) -> IO (StM m b) -> IO (StM m c)) -> m a -> m b -> m c
+controlLift2 io2 ma mb = control $ \runInBase -> io2 (runInBase ma) (runInBase mb)
+
+
+
+webAPIEndpointUrl :: String -> String
+webAPIEndpointUrl = ("https://slack.com/api/" ++)
+
 
 
 main :: IO ()
@@ -189,26 +281,31 @@ main = bootstrapStage1
     handleAppResult (Left  x) = $(logError) ("Program rejected: " <> showt x)
 
     -- |Bootstrap: initialize logging and bottom part of monadic stack.
-    bootstrapStage1 :: IO void
+    bootstrapStage1 :: IO ()
     bootstrapStage1 = do
         chanLogs <- newChan
         _ <- forkIO . runChanLoggingT chanLogs $
             runExceptT (bootstrapStage2 chanLogs) >>= handleAppResult
-        vacuous . runStderrLoggingT $ unChanLoggingT chanLogs
+        (runStderrLoggingT . unChanLoggingT $ chanLogs) `finally` notifyThreadFinished 
+      where
+        notifyThreadFinished = hPutStrLn stderr "LOGGER ERROR - THREAD KILLED: running runStderrLoggingT"
 
     -- |Bootstrap: read config.
-    bootstrapStage2 :: Chan LoggerData -> ExceptT GumbyAppErr (LoggingT IO) WS.Connection
+    bootstrapStage2 :: Chan LoggerData -> ExceptT GumbyAppErr (LoggingT IO) void
     bootstrapStage2 _cLoggingChan = do
         _cSecretSlackApiToken <- do
-            $(logDebug) "Reading the SLACK_SECRET_API_TOKEN from env vars"
             query <- liftIO $ lookupEnv "SLACK_SECRET_API_TOKEN"
             case query of
                 Nothing    -> throwError $ EnvVarMissing "SLACK_SECRET_API_TOKEN"
-                Just value -> pure . T.pack $ value
+                Just value -> do
+                    $(logDebug) "Reading the SLACK_SECRET_API_TOKEN from env vars"
+                    pure . T.pack $ value
+
+        _cWebsocketPingTime <- getEnvVarWithDefaults _WebsocketPingTime "WEBSOCKET_PING_TIME"
 
         runReaderT bootstrapStage3 Config{..}
 
-    bootstrapStage3 :: ReaderT Config (ExceptT GumbyAppErr (LoggingT IO)) WS.Connection
+    bootstrapStage3 :: ReaderT Config (ExceptT GumbyAppErr (LoggingT IO)) void
     bootstrapStage3 = do
         let configToAppState _asConfig = AppState{..}
         withReaderT configToAppState app
@@ -223,12 +320,12 @@ main = bootstrapStage1
 --                    +--- RTM sender
 --                    +--- the bot
 --
-app :: AppMonad WS.Connection
+app :: AppMonad void
 app = rtmBootstrapStage1
   where
     rtmHostPort = 443
 
-    rtmBootstrapStage1 :: AppMonad WS.Connection
+    rtmBootstrapStage1 :: AppMonad void
     rtmBootstrapStage1 = do
         (rtmApiResponse :: Rtm.RtmConnectResp) <- do
             $(logDebug) "Getting websocket URL"
@@ -246,14 +343,25 @@ app = rtmBootstrapStage1
 
         -- TODO: handle async exception from websockets (socket closed)
         $(logDebug) "Starting websocket process"
-        control $ \runInBase ->
-            WSc.runSecureClient
-                wsUrlHost rtmHostPort wsUrlPath
-                (runInBase . rtmBootstrapStage2 rtmApiResponse)
+        x <- control $ \runInBase ->
+            onException
+                (WSc.runSecureClient
+                    wsUrlHost rtmHostPort wsUrlPath
+                    (runInBase . rtmBootstrapStage2 rtmApiResponse))
+                (runInBase notifyExceptionRaised)
+
+        $(logError) "WSc.runSecureClient ended, this should not happen"
+        pure x
+      where
+        notifyExceptionRaised = $(logError) "WSc.runSecureClient killed by exception"
 
     rtmBootstrapStage2 :: Rtm.RtmConnectResp -> WS.Connection -> AppMonad void
     rtmBootstrapStage2 rtmApiResponse _rasConn = do
         _rasConfig <- view config
+
+        $(logDebug) "Starting websocket pinger thread"
+        pingTime <- view (config . cWebsocketPingTime . unwrap)
+        liftIO $ WS.forkPingThread _rasConn pingTime
 
         $(logDebug) "Creating inter-app communication chans"
         _rasChFromRtm  <- liftIO newChan
@@ -266,9 +374,10 @@ app = rtmBootstrapStage1
             appStateToRtmAppState _rasAppState = RtmAppState{..}
         withReaderT appStateToRtmAppState rtmBootstrapStage3
 
-    -- TODO: async handlers
     rtmBootstrapStage3 :: ReaderT RtmAppState (ExceptT GumbyAppErr (LoggingT IO)) void
     rtmBootstrapStage3 = do
+        -- TODO: pass readerT env to forked threads
+        logCh <- view cLoggingChan
         chFromRtm <- view rasChFromRtm
         chToGumby <- view rasChToGumby
         botId <- view rasBotId
@@ -280,10 +389,14 @@ app = rtmBootstrapStage1
         token <- view cSecretSlackApiToken
 
         $(logDebug) "Spawning thread: copy messages from RTM to all bots"
-        _ <- liftIO . forkIO $ thToBots chFromRtm [chToGumby]
+        _ <- liftIO . forkIO . runChanLoggingT logCh $
+            thToBots chFromRtm [chToGumby]
 
         $(logDebug) "Spawning thread: gumby"
-        _ <- liftIO . forkIO . runChanLoggingT chanLogs $ do
+        let notifyThreadFinished = $(logError) "Finished thread: gumby"
+        _ <- liftIO . forkIO
+                    . runChanLoggingT chanLogs
+                    . controlLift2 (flip finally) notifyThreadFinished $ do
             let _botReallyReallyNeedsRtmAppState = rtmState
 
                 _botRtmEventGetter :: forall m. MonadIO m => m (Either String Rtm.Event)
@@ -304,16 +417,17 @@ app = rtmBootstrapStage1
 
                 _botCallout = "<@" <> botId <> ">"
 
-            res <- runExceptT $ runReaderT (vacuous gumby) BotState{..}
-            -- TODO: oh snap, get rid of RecordWildCards :< no error ^^^^ here?…
+            res <- runExceptT . runReaderTWith BotState{..} . vacuous $ gumby
 
             handleRtmAppResult res
 
-        -- slack comm: senders
-        $(logDebug) "Spawnig thread: Web API sender"
-        _ <- liftIO . forkIO $ thToWeb token chToWeb
-        $(logDebug) "Spawnig thread: RTM API sender"
-        _ <- liftIO . forkIO $ thToRtm conn chToRtm
+        $(logDebug) "Spawning thread: Web API sender"
+        _ <- liftIO . forkIO . runChanLoggingT logCh $
+            thToWeb token chToWeb
+
+        $(logDebug) "Spawning thread: RTM API sender"
+        _ <- liftIO . forkIO . runChanLoggingT logCh $
+            thToRtm conn chToRtm
 
         -- slack comm: receivers
         vacuous $ thFromRtm conn chFromRtm
@@ -401,45 +515,66 @@ gumby = do
 -- TODO: bounded chans
 
 -- TODO: drop, use dupChan instead
-thToBots :: (MonadIO m)
+thToBots
+  :: forall m void. (MonadIO m, MonadLogger m, MonadBaseControl IO m)
   => Chan BSL.ByteString -> [Chan BSL.ByteString] -> m void
-thToBots incomingChan outgoingChans = forever $ do
-    msg <- liftIO $ readChan incomingChan
-    forM_ outgoingChans $ \outgoingChan ->
-        liftIO $ writeChan outgoingChan msg
+thToBots incomingChan outgoingChans =
+    control $ \runInBase ->
+        finally (forever go) (runInBase notifyThreadFinished)
+  where
+    go :: IO ()
+    go = do
+        msg <- liftIO $ readChan incomingChan
+        forM_ outgoingChans $ \outgoingChan ->
+            liftIO $ writeChan outgoingChan msg
+    notifyThreadFinished :: m ()
+    notifyThreadFinished = $(logError) "Finished thread: thToBots"
 
 
 
-thFromRtm :: (MonadIO m, MonadLogger m)
+thFromRtm :: forall m void. (MonadIO m, MonadLogger m, MonadBaseControl IO m)
   => WS.Connection -> Chan BSL.ByteString -> m void
-thFromRtm conn chFromRtm = forever $ do
-    msgFromSlack <- liftIO $ WS.receiveData conn
-    -- $(logDebug) ("thFromRtm: got message: " <> showt msgFromSlack)
-    liftIO $ writeChan chFromRtm msgFromSlack
+thFromRtm conn chFromRtm =
+    control $ \runInBase ->
+        finally (forever go) (runInBase notifyThreadFinished)
+  where
+    go = do
+        msgFromSlack <- liftIO $ WS.receiveData conn
+        liftIO $ writeChan chFromRtm msgFromSlack
+    notifyThreadFinished :: m ()
+    notifyThreadFinished = $(logError) "Finished thread: thFromRtm"
 
 
 
-thToRtm :: WS.Connection -> Chan BSL.ByteString -> IO void
-thToRtm conn chToRtm = forever $ do
-    msgToSlack <- readChan chToRtm
-    WS.sendTextData conn msgToSlack
+thToRtm
+  :: forall m void. (MonadIO m, MonadLogger m, MonadBaseControl IO m)
+  => WS.Connection -> Chan BSL.ByteString -> m void
+thToRtm conn chToRtm =
+    control $ \runInBase ->
+        finally (forever go) (runInBase notifyThreadFinished)
+  where
+    go :: IO ()
+    go = do
+        msgToSlack <- readChan chToRtm
+        WS.sendTextData conn msgToSlack
+    notifyThreadFinished :: m ()
+    notifyThreadFinished = $(logError) "Finished thread: thToRtm"
 
 
 
-thToWeb :: T.Text -> Chan (Wr.Options, String, Chan BSL.ByteString) -> IO void
-thToWeb slackSecretApiToken chToWeb = forever $ do
-    (reqOptions, endpoint, chReply) <- readChan chToWeb
-    reply <- Wr.getWith
-        (reqOptions & param "token" .~ [slackSecretApiToken])
-        (webAPIEndpointUrl endpoint)
-    -- putStrLn $ "web:" ++ (reply ^. Wr.responseBody . BSL.unpackedChars)
-    -- $(logDebug) ("thToWeb: got reply: " <> (reply ^. Wr.responseBody . to showt))
-    writeChan chReply (reply ^. Wr.responseBody)
-
-
-
-webAPIEndpointUrl :: String -> String
-webAPIEndpointUrl = ("https://slack.com/api/" ++)
-
-
--- TODO: Dockerize
+thToWeb
+  :: forall m void. (MonadLogger m, MonadIO m, MonadBaseControl IO m)
+  => T.Text -> Chan (Wr.Options, String, Chan BSL.ByteString) -> m void
+thToWeb slackSecretApiToken chToWeb =
+    control $ \runInBase ->
+        finally (forever go) (runInBase notifyThreadFinished)
+  where
+    go :: IO ()
+    go = do
+        (reqOptions, endpoint, chReply) <- readChan chToWeb
+        reply <- Wr.getWith
+            (reqOptions & param "token" .~ [slackSecretApiToken])
+            (webAPIEndpointUrl endpoint)
+        writeChan chReply (reply ^. Wr.responseBody)
+    notifyThreadFinished :: m ()
+    notifyThreadFinished = $(logError) "Finished thread: thToWeb"

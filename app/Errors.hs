@@ -21,11 +21,14 @@ import qualified Data.ByteString.Lazy as BSL
 
 data GumbyAppErr
   = EnvVarMissing String
+  | EnvVarUnreadable String
   | JsonDecodeError String BSL.ByteString
 
 instance TextShow GumbyAppErr where
   showb (EnvVarMissing varName)
-    = TS.fromText "Missing environment variable: " <> showb varName
+    = TS.fromText "Missing environment variable. Var name: " <> showb varName
+  showb (EnvVarUnreadable varName)
+    = TS.fromText "Environment variable contains malformed value. Var name: " <> showb varName
   showb (JsonDecodeError err originalJSON)
     = TS.fromText "Error while decoding JSON: "
         <> showb err

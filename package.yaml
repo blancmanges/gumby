@@ -50,6 +50,7 @@ executables:
       - tzdata
       - tz
       - transformers
+      - data-default
 
 tests:
   gumby-test:
