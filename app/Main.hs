@@ -42,10 +42,12 @@ import           Data.Function
 
 -- mtl
 import           Control.Monad.Except (MonadError, ExceptT, runExceptT, throwError)
-import           Control.Monad.Reader
+-- (app)
+import           Control.Monad.Reader.Extended  -- runReaderTWith
 
 -- transformers
-import           Control.Monad.Trans.Maybe
+-- (app)
+import           Control.Monad.Trans.Maybe.Extended -- liftMaybe
 
 -- text
 import           Data.Text (Text)
@@ -82,8 +84,9 @@ import           Control.Monad.Logger (
 import           TextShow (TextShow, showt)
 import qualified TextShow as TS
 
--- monad control
-import           Control.Monad.Trans.Control (MonadBaseControl, StM, control)
+-- monad-control
+-- (app)
+import           Control.Monad.Trans.Control.Extended (MonadBaseControl, control, controlLift2)
 
 -- time
 import qualified Data.Time as Time
@@ -136,16 +139,12 @@ runSimpleCommand :: forall m. IsBotMonad m => Text -> (Rtm.EMessage -> Text -> m
 runSimpleCommand cmdPrefix callback = do
     res <- runMaybeT $ do
         rtmInput <- getRtmEvent
-        msg <- continueWithValue (rtmInput ^? _Right . Web._Message)
-        cmd <- continueWithValue . (T.strip <$>) . T.stripPrefix cmdPrefix . (^. Rtm.text) $ msg
+        msg <- liftMaybe (rtmInput ^? _Right . Web._Message)
+        cmd <- liftMaybe . (T.strip <$>) . T.stripPrefix cmdPrefix . (^. Rtm.text) $ msg
         pure (msg, cmd)
     case res of
         Nothing -> pure ()
         Just (msg, cmd) -> callback msg cmd
-  where
-    continueWithValue :: Maybe a -> MaybeT m a
-    continueWithValue = MaybeT . pure
-
 
 getEnvVarWithDefaults
     :: (MonadIO m, TextShow a, Default b, MonadLogger m, Read a, MonadError GumbyAppErr m)
@@ -186,22 +185,8 @@ getEnvVarWithDefaults isoUnwrap envVarKey = do
                     throwError $ EnvVarUnreadable envVarKey
 
 
-
-runReaderTWith :: r -> ReaderT r m a -> m a
-runReaderTWith = flip runReaderT
-
-
-
-controlLift2
-  :: (MonadIO m, MonadBaseControl IO m)
-  => (IO (StM m a) -> IO (StM m b) -> IO (StM m c)) -> m a -> m b -> m c
-controlLift2 io2 ma mb = control $ \runInBase -> io2 (runInBase ma) (runInBase mb)
-
-
-
 webAPIEndpointUrl :: String -> String
 webAPIEndpointUrl = ("https://slack.com/api/" ++)
-
 
 
 main :: IO ()
