@@ -16,7 +16,7 @@ module Main (
     main
 ) where
 
--- (gumby)
+-- (lib)
 import qualified Network.Slack.API.Web.Methods.RtmConnect as Rtm
 import qualified Network.Slack.API.RTM.Event              as Rtm
 import qualified Network.Slack.API.RTM.Events.Message     as Rtm
@@ -26,6 +26,7 @@ import qualified Network.Slack.API.Web.Lens    as Web
 import qualified Network.Slack.API.Web.Classes as Web
 -- (app)
 import           Errors
+import           App.Conf
 
 -- base
 import           Control.Monad
@@ -76,7 +77,6 @@ import           Control.Monad.Logger (
     MonadLogger, LoggingT
   , runStderrLoggingT, runChanLoggingT, unChanLoggingT, logDebug, logInfo, logError
   )
-import qualified Control.Monad.Logger as Logger
 
 -- text-show
 import           TextShow (TextShow, showt)
@@ -117,73 +117,6 @@ import           Data.Default (Default, def)
 --     LOGGER ERROR - THREAD KILLED: running runStderrLoggingT
 --     gumby: thread blocked indefinitely in an MVar operation
 
-
--- |The type used by monad-logger for inter-process logging.
-type LoggerData = (Logger.Loc, Logger.LogSource, Logger.LogLevel, Logger.LogStr)
-
-
-
--- |Config of the app.
-data Config
-  = Config
-      { _cSecretSlackApiToken :: Text
-      , _cLoggingChan :: Chan LoggerData
-      , _cWebsocketPingTime :: WebsocketPingTime
-      }
-
-newtype WebsocketPingTime = WebsocketPingTime { _unwrap :: Int }
-makeClassy ''WebsocketPingTime
-makePrisms ''WebsocketPingTime
-instance Read WebsocketPingTime where readPrec = WebsocketPingTime <$> readPrec
-instance Default WebsocketPingTime where def = WebsocketPingTime 30
-
-
-
--- |App state. Includes config and app state.
-data AppState
-  = AppState
-      { _asConfig      :: Config
-      }
-
--- |RTM app state. Includes config, app state, data from Slack, and other runtime state
--- for the bot.
-data RtmAppState
-  = RtmAppState
-      { _rasAppState   :: AppState
-      , _rasBotId      :: Text
-      , _rasConn       :: WS.Connection
-      , _rasChFromRtm  :: Chan BSL.ByteString
-      , _rasChToRtm    :: Chan BSL.ByteString
-      , _rasChToWeb    :: Chan (Wr.Options, String, Chan BSL.ByteString)
-      , _rasChFromBots :: Chan Void
-      , _rasChToGumby  :: Chan BSL.ByteString
-      }
-
-data BotState
-  = BotState
-      { _botReallyReallyNeedsRtmAppState :: RtmAppState
-      , _botCallout :: Text
-      , _botRtmEventGetter :: forall m. MonadIO m => m (Either String Rtm.Event)
-      , _botRtmRequestSender :: forall m. MonadIO m => Rtm.Request -> m ()
-      , _botWebMethodCaller
-          :: forall m req resp. (MonadIO m, Web.Method req resp)
-          => req
-          -> m (Either String resp)
-      }
-
-makeClassy ''Config
-makeClassy ''AppState
-makeClassy ''RtmAppState
-makeClassy ''BotState
-
-instance HasConfig AppState where
-    config = asConfig
-
-instance HasConfig RtmAppState where
-    config = rasAppState . asConfig
-
-instance HasAppState RtmAppState where
-    appState = rasAppState
 
 type IsBotMonad m = (MonadIO m, MonadReader BotState m)
 
