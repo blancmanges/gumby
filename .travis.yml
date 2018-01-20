@@ -18,3 +18,4 @@ install:
 
 script:
 - stack --no-docker --no-terminal test --haddock --no-haddock-deps
+- bash -euo pipefail .mpl-check.sh
