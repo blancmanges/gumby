@@ -37,11 +37,10 @@ import           System.Environment (lookupEnv)
 import           Control.Concurrent
 import           Control.Exception
 import           System.IO (hPutStrLn, stderr)
-import           Text.Read
 import           Data.Function
 
 -- mtl
-import           Control.Monad.Except (MonadError, ExceptT, runExceptT, throwError)
+import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 -- (app)
 import           Control.Monad.Reader.Extended  -- runReaderTWith
 
@@ -81,8 +80,7 @@ import           Control.Monad.Logger (
   )
 
 -- text-show
-import           TextShow (TextShow, showt)
-import qualified TextShow as TS
+import           TextShow (showt)
 
 -- monad-control
 -- (app)
@@ -97,9 +95,6 @@ import qualified Data.Time.Zones.DB as TimeZones
 -- tz
 import qualified Data.Time.Zones as TimeZones
 import qualified Data.Time.Zones.All as TimeZones
-
--- data-default
-import           Data.Default (Default, def)
 
 -- async
 import           Control.Concurrent.Async (race_)
@@ -130,48 +125,6 @@ runSimpleCommand cmdPrefix callback = do
     case res of
         Nothing -> pure ()
         Just (msg, cmd) -> callback msg cmd
-
-getEnvVarWithDefaults
-    :: (MonadIO m, TextShow a, Default b, MonadLogger m, Read a, MonadError GumbyAppErr m)
-    => Iso' b a -> String -> m b
-getEnvVarWithDefaults isoUnwrap envVarKey = do
-    query <- liftIO $ lookupEnv envVarKey
-    case query of
-
-        Nothing -> do
-            let val = def
-                unwrapped = view isoUnwrap val
-                logmsg = [ TS.fromText "Env var"
-                         , TS.fromString envVarKey
-                         , TS.fromText "does not exist, using default value:"
-                         , TS.fromText . showt $ unwrapped
-                         ]
-            $(logDebug) (TS.toText $ TS.unwordsB logmsg)
-            pure val
-
-        Just envVarValue -> do
-            case readMaybe envVarValue of
-                Just parsed -> do
-                    let logmsg = [ TS.fromText "Reading"
-                                 , TS.fromString envVarKey
-                                 , TS.fromText "from env variables:"
-                                 , TS.fromText . showt $ parsed]
-                        wrapped = view (from isoUnwrap) parsed
-                    $(logDebug) (TS.toText $ TS.unwordsB logmsg)
-                    pure wrapped
-
-                Nothing -> do
-                    let logmsg = [ TS.fromText "Env var"
-                                 , TS.fromString envVarKey
-                                 , TS.fromText "cannot be converted to proper value:"
-                                 , TS.fromString envVarValue
-                                 ]
-                    $(logError) (TS.toText $ TS.unwordsB logmsg)
-                    throwError $ EnvVarUnreadable envVarKey
-
-
-webAPIEndpointUrl :: String -> String
-webAPIEndpointUrl = ("https://slack.com/api/" ++)
 
 
 main :: IO ()
@@ -207,7 +160,9 @@ main = bootstrapStage1
                     $(logDebug) "Reading the SLACK_SECRET_API_TOKEN from env vars"
                     pure . T.pack $ value
 
-        _cWebsocketPingTime <- getEnvVarWithDefaults _WebsocketPingTime "WEBSOCKET_PING_TIME"
+        _cWebsocketPingTime <- getEnvVarWithDefaults "WEBSOCKET_PING_TIME"
+        _cRtmHostPort <- getEnvVarWithDefaults "WEBSOCKET_PORT"
+        _cWebEndpoint <- getEnvVarWithDefaults "WEB_ENDPOINT"
 
         runReaderT bootstrapStage3 Config{..}
 
@@ -231,16 +186,15 @@ main = bootstrapStage1
 app :: AppMonad void
 app = rtmBootstrapStage1
   where
-    rtmHostPort = 443
-
     rtmBootstrapStage1 :: AppMonad void
     rtmBootstrapStage1 = do
         (rtmApiResponse :: Rtm.RtmConnectResp) <- do
             $(logDebug) "Getting websocket URL"
             token <- view (config . cSecretSlackApiToken)
+            endpointRoot <- view (cWebEndpoint . unwrapDefaultableConf)
             response <- liftIO $ Wr.getWith
                             (Wr.defaults & param "token" .~ [token])
-                            (webAPIEndpointUrl "rtm.connect")
+                            (endpointRoot <> "rtm.connect")
             let responseBody = response ^. Wr.responseBody
             case Ae.eitherDecode responseBody of
                 Left  e -> do
@@ -250,6 +204,7 @@ app = rtmBootstrapStage1
 
         let wsUrlHost = rtmApiResponse ^. Web.urlHost . LsStrict.unpacked
             wsUrlPath = rtmApiResponse ^. Web.urlPath . LsStrict.unpacked
+        rtmHostPort <- view (cRtmHostPort . unwrapDefaultableConf . to fromInteger)
 
         -- TODO: handle async exception from websockets (socket closed)
         $(logDebug) "Starting websocket process"
@@ -270,7 +225,7 @@ app = rtmBootstrapStage1
         _rasConfig <- view config
 
         $(logDebug) "Starting websocket pinger thread"
-        pingTime <- view (config . cWebsocketPingTime . unwrap)
+        pingTime <- view (cWebsocketPingTime . unwrapDefaultableConf)
         liftIO $ WS.forkPingThread _rasConn pingTime
 
         $(logDebug) "Creating inter-app communication chans"
@@ -297,6 +252,7 @@ app = rtmBootstrapStage1
         chToWeb <- view rasChToWeb
         conn <- view rasConn
         token <- view cSecretSlackApiToken
+        endpointRoot <- view (cWebEndpoint . unwrapDefaultableConf)
 
         $(logDebug) "Spawning thread: copy messages from RTM to all bots"
         _ <- liftIO . forkIO . runChanLoggingT logCh $
@@ -333,7 +289,7 @@ app = rtmBootstrapStage1
 
         $(logDebug) "Spawning thread: Web API sender"
         _ <- liftIO . forkIO . runChanLoggingT logCh $
-            thToWeb token chToWeb
+            thToWeb token endpointRoot chToWeb
 
         $(logDebug) "Spawning thread: RTM API sender"
         _ <- liftIO . forkIO . runChanLoggingT logCh $
@@ -474,8 +430,8 @@ thToRtm conn chToRtm =
 
 thToWeb
   :: forall m void. (MonadLogger m, MonadIO m, MonadBaseControl IO m)
-  => T.Text -> Chan (Wr.Options, String, Chan BSL.ByteString) -> m void
-thToWeb slackSecretApiToken chToWeb =
+  => T.Text -> String -> Chan (Wr.Options, String, Chan BSL.ByteString) -> m void
+thToWeb slackSecretApiToken endpointRoot chToWeb =
     control $ \runInBase ->
         finally (forever go) (runInBase notifyThreadFinished)
   where
@@ -484,7 +440,7 @@ thToWeb slackSecretApiToken chToWeb =
         (reqOptions, endpoint, chReply) <- readChan chToWeb
         reply <- Wr.getWith
             (reqOptions & param "token" .~ [slackSecretApiToken])
-            (webAPIEndpointUrl endpoint)
+            (endpointRoot <> endpoint)
         writeChan chReply (reply ^. Wr.responseBody)
     notifyThreadFinished :: m ()
     notifyThreadFinished = $(logError) "Finished thread: thToWeb"

@@ -4,18 +4,18 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module App.Conf.Config where
 
 -- (app)
 import           App.Conf.LoggerData
+import           App.Conf.DefaultableConf
 
 -- base
-import           Text.Read
 import           Control.Concurrent
-
--- data-default
-import           Data.Default (Default, def)
 
 -- lens
 import           Control.Lens hiding ((.=))
@@ -25,23 +25,29 @@ import           Data.Text (Text)
 
 
 
-newtype WebsocketPingTime = WebsocketPingTime { _unwrap :: Int }
+data WebsocketPingTime
+instance GetDefault WebsocketPingTime Int where getDefault _ = 30
 
-instance Read WebsocketPingTime where
-    readPrec = WebsocketPingTime <$> readPrec
-instance Default WebsocketPingTime where
-    def = WebsocketPingTime 30
+data RtmHostPort
+instance GetDefault RtmHostPort Integer where getDefault _ = 443
 
-makeClassy ''WebsocketPingTime
-makePrisms ''WebsocketPingTime
+data WebEndpoint
+instance GetDefault WebEndpoint String where getDefault _ = "https://slack.com/api/"
 
 
 -- |Config of the app.
 data Config
   = Config
-      { _cSecretSlackApiToken :: Text
-      , _cLoggingChan :: Chan LoggerData
-      , _cWebsocketPingTime :: WebsocketPingTime
+      -- App data
+      { _cLoggingChan :: Chan LoggerData
+
+      -- Required input
+      , _cSecretSlackApiToken :: Text
+
+      -- Optional input
+      , _cWebsocketPingTime :: DefaultableConf Int     WebsocketPingTime
+      , _cRtmHostPort       :: DefaultableConf Integer RtmHostPort
+      , _cWebEndpoint       :: DefaultableConf String  WebEndpoint
       }
 
 makeClassy ''Config
