@@ -51,6 +51,7 @@ executables:
       - tz
       - transformers
       - data-default
+      - async
 
 tests:
   gumby-test:

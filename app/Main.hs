@@ -101,24 +101,9 @@ import qualified Data.Time.Zones.All as TimeZones
 -- data-default
 import           Data.Default (Default, def)
 
+-- async
+import           Control.Concurrent.Async (race_)
 
-
--- TODO: properly handle asyncs
---     [Debug] Reading the SLACK_SECRET_API_TOKEN from env vars @(main:Main app/Main.hs:283:23)
---     [Debug] Reading WEBSOCKET_PING_TIME from env variables: 5 @(main:Main app/Main.hs:225:23)
---     [Debug] Getting websocket URL @(main:Main app/Main.hs:313:15)
---     [Debug] Starting websocket process @(main:Main app/Main.hs:327:11)
---     [Debug] Starting websocket pinger thread @(main:Main app/Main.hs:344:11)
---     [Debug] Creating inter-app communication chans @(main:Main app/Main.hs:348:11)
---     [Debug] Spawning thread: copy messages from RTM to all bots @(main:Main app/Main.hs:373:11)
---     [Debug] Spawning thread: gumby @(main:Main app/Main.hs:377:11)
---     [Debug] Spawning thread: Web API sender @(main:Main app/Main.hs:406:11)
---     [Debug] Spawning thread: RTM API sender @(main:Main app/Main.hs:410:11)
---     gumby: ParseException "not enough input"
---     [Error] Finished thread: thFromRtm @(main:Main app/Main.hs:527:30)
---     [Error] WSc.runSecureClient killed by exception @(main:Main app/Main.hs:338:35)
---     LOGGER ERROR - THREAD KILLED: running runStderrLoggingT
---     gumby: thread blocked indefinitely in an MVar operation
 
 
 type IsBotMonad m = (MonadIO m, MonadReader BotState m)
@@ -193,20 +178,23 @@ main :: IO ()
 main = bootstrapStage1
   where
 
-    -- |Gather and process result of running of the application.
-    -- Resource handling should happen here.
-    handleAppResult (Right _) = $(logInfo)  "Program completed successfully"
-    handleAppResult (Left  x) = $(logError) ("Program rejected: " <> showt x)
-
     -- |Bootstrap: initialize logging and bottom part of monadic stack.
     bootstrapStage1 :: IO ()
     bootstrapStage1 = do
         chanLogs <- newChan
-        _ <- forkIO . runChanLoggingT chanLogs $
-            runExceptT (bootstrapStage2 chanLogs) >>= handleAppResult
-        (runStderrLoggingT . unChanLoggingT $ chanLogs) `finally` notifyThreadFinished 
+        race_
+            (runLoggedApp chanLogs `finally` loggedAppFinished)
+            (runLogger chanLogs `finally` loggerFinished)
       where
-        notifyThreadFinished = hPutStrLn stderr "LOGGER ERROR - THREAD KILLED: running runStderrLoggingT"
+        runLoggedApp chanLogs = runChanLoggingT chanLogs $
+            runExceptT (bootstrapStage2 chanLogs) >>= handleAppResult
+        loggedAppFinished = hPutStrLn stderr "CORE ERROR - THREAD KILLED or FINISHED: logged app"
+
+        handleAppResult (Right _) = $(logInfo)  "Program completed successfully"
+        handleAppResult (Left  x) = $(logError) ("Program rejected: " <> showt x)
+
+        runLogger = runStderrLoggingT . unChanLoggingT
+        loggerFinished = hPutStrLn stderr "CORE ERROR - THREAD KILLED or FINISHED: logger"
 
     -- |Bootstrap: read config.
     bootstrapStage2 :: Chan LoggerData -> ExceptT GumbyAppErr (LoggingT IO) void
@@ -230,7 +218,9 @@ main = bootstrapStage1
 
 -- Thread structure:
 --
---     -+--- logging to stderr
+--        +--- logging to stderr
+--       /
+--     -+--- core exception handler
 --       \
 --        +---app---+--- RTM listener
 --                   \
@@ -253,7 +243,9 @@ app = rtmBootstrapStage1
                             (webAPIEndpointUrl "rtm.connect")
             let responseBody = response ^. Wr.responseBody
             case Ae.eitherDecode responseBody of
-                Left  e -> throwError $ JsonDecodeError e responseBody
+                Left  e -> do
+                    $(logError) "Couldn't decode responseBody"
+                    throwError $ JsonDecodeError e responseBody
                 Right x -> pure x
 
         let wsUrlHost = rtmApiResponse ^. Web.urlHost . LsStrict.unpacked
