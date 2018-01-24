@@ -4,12 +4,15 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module App.Conf.RtmAppState where
 
 -- (app)
 import           App.Conf.Config (HasConfig(..))
 import           App.Conf.AppState
+import           App.Conf.DefaultableConf 
 
 -- base
 import           Control.Concurrent
@@ -48,7 +51,7 @@ data RtmAppState
 
 makeClassy ''RtmAppState
 
-instance HasConfig RtmAppState where
+instance HasConfig RtmAppState 'DUnwrapped where
     config = rasAppState . asConfig
 
 instance HasAppState RtmAppState where

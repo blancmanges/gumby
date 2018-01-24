@@ -8,6 +8,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module App.Conf.DefaultableConf where
 
@@ -23,8 +25,18 @@ import           Control.Lens hiding ((.=))
 
 
 
+data DefaultsWrapped
+  = DWrapped
+  | DUnwrapped
+
+
 class GetDefault a b | a -> b where
     getDefault :: Proxy a -> b
+
+
+type family DefaultableConfW isWrapped a b where
+    DefaultableConfW 'DWrapped a b = DefaultableConf a b
+    DefaultableConfW 'DUnwrapped a b = a
 
 newtype DefaultableConf a b = DefaultableConf { _unwrapDefaultableConf :: a }
 

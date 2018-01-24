@@ -11,6 +11,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 
 module Main (
     main
@@ -166,9 +167,9 @@ main = bootstrapStage1
 
         runReaderT bootstrapStage3 Config{..}
 
-    bootstrapStage3 :: ReaderT Config (ExceptT GumbyAppErr (LoggingT IO)) void
+    bootstrapStage3 :: ReaderT (Config 'DWrapped) (ExceptT GumbyAppErr (LoggingT IO)) void
     bootstrapStage3 = do
-        let configToAppState _asConfig = AppState{..}
+        let configToAppState cfg = AppState{ _asConfig = unwrapCfg cfg }
         withReaderT configToAppState app
 
 -- Thread structure:
@@ -191,7 +192,7 @@ app = rtmBootstrapStage1
         (rtmApiResponse :: Rtm.RtmConnectResp) <- do
             $(logDebug) "Getting websocket URL"
             token <- view (config . cSecretSlackApiToken)
-            endpointRoot <- view (cWebEndpoint . unwrapDefaultableConf)
+            endpointRoot <- view cWebEndpoint
             response <- liftIO $ Wr.getWith
                             (Wr.defaults & param "token" .~ [token])
                             (endpointRoot <> "rtm.connect")
@@ -204,7 +205,7 @@ app = rtmBootstrapStage1
 
         let wsUrlHost = rtmApiResponse ^. Web.urlHost . LsStrict.unpacked
             wsUrlPath = rtmApiResponse ^. Web.urlPath . LsStrict.unpacked
-        rtmHostPort <- view (cRtmHostPort . unwrapDefaultableConf . to fromInteger)
+        rtmHostPort <- view (cRtmHostPort . to fromInteger)
 
         -- TODO: handle async exception from websockets (socket closed)
         $(logDebug) "Starting websocket process"
@@ -225,7 +226,7 @@ app = rtmBootstrapStage1
         _rasConfig <- view config
 
         $(logDebug) "Starting websocket pinger thread"
-        pingTime <- view (cWebsocketPingTime . unwrapDefaultableConf)
+        pingTime <- view cWebsocketPingTime
         liftIO $ WS.forkPingThread _rasConn pingTime
 
         $(logDebug) "Creating inter-app communication chans"
@@ -252,7 +253,7 @@ app = rtmBootstrapStage1
         chToWeb <- view rasChToWeb
         conn <- view rasConn
         token <- view cSecretSlackApiToken
-        endpointRoot <- view (cWebEndpoint . unwrapDefaultableConf)
+        endpointRoot <- view cWebEndpoint
 
         $(logDebug) "Spawning thread: copy messages from RTM to all bots"
         _ <- liftIO . forkIO . runChanLoggingT logCh $

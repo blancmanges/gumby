@@ -7,6 +7,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module App.Conf.Config where
 
@@ -36,7 +42,7 @@ instance GetDefault WebEndpoint String where getDefault _ = "https://slack.com/a
 
 
 -- |Config of the app.
-data Config
+data Config wrapper
   = Config
       -- App data
       { _cLoggingChan :: Chan LoggerData
@@ -45,9 +51,16 @@ data Config
       , _cSecretSlackApiToken :: Text
 
       -- Optional input
-      , _cWebsocketPingTime :: DefaultableConf Int     WebsocketPingTime
-      , _cRtmHostPort       :: DefaultableConf Integer RtmHostPort
-      , _cWebEndpoint       :: DefaultableConf String  WebEndpoint
+      , _cWebsocketPingTime :: DefaultableConfW wrapper Int     WebsocketPingTime
+      , _cRtmHostPort       :: DefaultableConfW wrapper Integer RtmHostPort
+      , _cWebEndpoint       :: DefaultableConfW wrapper String  WebEndpoint
       }
+
+unwrapCfg :: Config 'DWrapped -> Config 'DUnwrapped
+unwrapCfg x@Config{..} = 
+  x { _cWebsocketPingTime = _unwrapDefaultableConf _cWebsocketPingTime
+    , _cRtmHostPort       = _unwrapDefaultableConf _cRtmHostPort
+    , _cWebEndpoint       = _unwrapDefaultableConf _cWebEndpoint
+    }
 
 makeClassy ''Config

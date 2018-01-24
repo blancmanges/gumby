@@ -4,11 +4,16 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
 
 module App.Conf.AppState where
 
 -- (app)
 import           App.Conf.Config
+import           App.Conf.DefaultableConf 
 
 -- lens
 import           Control.Lens hiding ((.=))
@@ -18,10 +23,10 @@ import           Control.Lens hiding ((.=))
 -- |App state. Includes config and app state.
 data AppState
   = AppState
-      { _asConfig      :: Config
+      { _asConfig      :: Config 'DUnwrapped
       }
 
 makeClassy ''AppState
 
-instance HasConfig AppState where
+instance HasConfig AppState 'DUnwrapped where
     config = asConfig
