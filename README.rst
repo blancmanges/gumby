@@ -47,3 +47,4 @@ The ``<type>`` SHOULD be present. The ``<scope>`` is OPTIONAL. The ``<body>`` is
 - ``fmt`` - reformatting the code
 - ``refactor``
 - ``build`` - related to build & CI/CD systems
+- ``meta`` - related to repository itself (e.g. .gitignore changes)
