@@ -22,3 +22,28 @@ Building & running
 
     # Running
     docker run -e SLACK_SECRET_API_TOKEN=$YOUR_SECRET_TOKEN --rm -it kgadek-gumby:latest
+
+
+Commit guidelines
+=================
+
+The git-commit "format"::
+
+    <type>:<scope>: <subject>
+
+    <body>
+
+The ``<type>`` SHOULD be present. The ``<scope>`` is OPTIONAL. The ``<body>`` is RECOMMENDED.
+
+.. note::
+    Here we use RFC2119 & RFC8174 lingo.
+
+``<type>``
+----------
+
+- ``feature``
+- ``fix``
+- ``docs``
+- ``fmt`` - reformatting the code
+- ``refactor``
+- ``build`` - related to build & CI/CD systems
