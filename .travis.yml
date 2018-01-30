@@ -1,5 +1,6 @@
 sudo: false
 language: generic
+group: travis_latest
 cache:
   directories:
   - $HOME/.stack
