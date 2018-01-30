@@ -314,6 +314,14 @@ gumby = do
     genericErrReply = "(intensively thinking in confusion)…        Hello!"
 
     go :: Rtm.EMessage -> Text -> m ()
+    go msg (T.toLower -> help)
+      | help == "help" || help == "list"
+      = sendRtmRequest . Rtm.SendMessage $ Rtm.RSendMessage
+          { Rtm._rSendMessageId = 123
+          , Rtm._rSendMessageChannel = msg ^. Rtm.channel
+          , Rtm._rSendMessageText = "Commands available:\n    `tz` - show current time in various time zones"
+          }
+
     go msg (T.toLower -> hi)
       | hi == "hello" || hi == "hi" || hi == "ohai"
       = sendRtmRequest . Rtm.SendMessage $ Rtm.RSendMessage
