@@ -5,7 +5,7 @@
 -}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Errors where
+module App.Errors where
 
 -- base
 import           Data.Monoid
@@ -19,12 +19,12 @@ import qualified Data.ByteString.Lazy as BSL
 
 
 
-data GumbyAppErr
+data BotAppErr
   = EnvVarMissing String
   | EnvVarUnreadable String
   | JsonDecodeError String BSL.ByteString
 
-instance TextShow GumbyAppErr where
+instance TextShow BotAppErr where
   showb (EnvVarMissing varName)
     = TS.fromText "Missing environment variable. Var name: " <> showb varName
   showb (EnvVarUnreadable varName)

@@ -46,7 +46,7 @@ data RtmAppState
       , _rasChToRtm    :: Chan BSL.ByteString
       , _rasChToWeb    :: Chan (Wr.Options, String, Chan BSL.ByteString)
       , _rasChFromBots :: Chan Void
-      , _rasChToGumby  :: Chan BSL.ByteString
+      , _rasChToBot    :: Chan BSL.ByteString
       }
 
 makeClassy ''RtmAppState

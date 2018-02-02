@@ -10,7 +10,7 @@
 module App.Conf.EnvVarReader where
 
 -- (app)
-import           Errors
+import           App.Errors
 import           App.Conf.DefaultableConf
 
 -- base
@@ -37,7 +37,7 @@ import           Control.Lens hiding ((.=))
 
 
 getEnvVarWithDefaults
-    :: (MonadIO m, TextShow a, GetDefault b a, MonadLogger m, Read a, MonadError GumbyAppErr m)
+    :: (MonadIO m, TextShow a, GetDefault b a, MonadLogger m, Read a, MonadError BotAppErr m)
     => String -> m (DefaultableConf a b)
 getEnvVarWithDefaults envVarKey = do
     query <- liftIO $ lookupEnv envVarKey
