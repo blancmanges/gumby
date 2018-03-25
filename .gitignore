@@ -6,6 +6,9 @@ secret_*
 ### Build artefacts
 ################################################################################
 
+## Docker/Build temp dirs
+build-cache/
+
 ## Cargo
 /target/
 **/*.rs.bk
