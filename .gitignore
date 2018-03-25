@@ -6,34 +6,12 @@ secret_*
 ### Build artefacts
 ################################################################################
 
-## HPack artefact
-*.cabal
-
-## HLint artefact
-report.html
-
-## Stack artefacts
-.stack-work/
-
-## HPC
-.hpc/
-*.tix
-hpc_report/
-
-## Profiling
-*.prof
-*.hp
-*.ps
-*.eventlog
-
-## Benchmark artefact
-bench.html
-
-## Core dump
-core-html*
-
-## Test results
-results.xml
+## Cargo
+/target/
+**/*.rs.bk
+Cargo.lock
+/target/
+**/*.rs.bk
 
 ## Tags
 tags

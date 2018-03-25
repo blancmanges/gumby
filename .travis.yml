@@ -1,22 +1,12 @@
-sudo: false
-language: generic
-group: travis_latest
-cache:
-  directories:
-  - $HOME/.stack
-addons:
-  apt:
-    packages:
-      - libgmp-dev
-
-before_install:
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-
-install:
-- stack --no-docker --no-terminal --install-ghc test --only-dependencies
-
-script:
-- stack --no-docker --no-terminal test --haddock --no-haddock-deps
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+cache: cargo
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+after_script:
 - bash -euo pipefail .mpl-check.sh

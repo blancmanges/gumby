@@ -10,20 +10,6 @@
    :backlinks: entry
 
 
-Building & running
-==================
-
-.. code:: bash
-
-    stack docker pull       # Preparations. Required once
-
-    stack build             # Build.
-    stack image container   # Build docker image.
-
-    # Running
-    docker run -e SLACK_SECRET_API_TOKEN=$YOUR_SECRET_TOKEN --rm -it kgadek-gumby:latest
-
-
 Commit guidelines
 =================
 

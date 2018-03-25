@@ -1,0 +1,15 @@
+[package]
+name = "gumby"
+version = "0.0.1"
+authors = ["Konrad Gądek <kgadek@gmail.com>"]
+license = "MPL-2.0"
+repository = "https://github.com/kgadek/gumby"
+description = "Mr Gumby, a stupid slackbot."
+
+[dependencies]
+slack = "0.19.0"
+slack_api = "0.19.0"
+clap = "2.31.2"
+chrono = "0.4.0"
+chrono-tz = "0.4.1"
+itertools = "0.7.8"

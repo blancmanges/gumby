@@ -2,15 +2,13 @@
 
 set +e; {
 read -r -d '' MPL_HEADER <<'EOM'
-{-
-  This Source Code Form is subject to the terms of the Mozilla Public
-  License, v. 2.0. If a copy of the MPL was not distributed with this
-  file, You can obtain one at http://mozilla.org/MPL/2.0/.
--}
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
 EOM
 
 read -r -d '' AWK_SCRIPT <<'EOM'
-printed == 5 {
+printed == 3 {
     exit 0
 }
 /./ {
@@ -30,6 +28,6 @@ while read -r FILE; do
         echo "${FILE}  FAILED"
         EXITCODE=1
     fi
-done <<< "$(find app src -type f -name '*.hs')"
+done <<< "$(find src -type f -name '*.rs')"
 
 exit "${EXITCODE}"
