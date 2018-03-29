@@ -10,6 +10,14 @@
    :backlinks: entry
 
 
+
+Building
+========
+
+The usual ``cargo build`` is fine. If you want docker image with gumby, run
+``make image`` - this shall build fairly minimal Alpine-based container.
+
+
 Commit guidelines
 =================
 

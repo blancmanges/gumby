@@ -7,12 +7,15 @@ extern crate clap;
 extern crate gumby;
 extern crate slack;
 extern crate slack_api;
+extern crate openssl_probe;
 
 use clap::{App, Arg};
 
 use gumby::slack_handler::GumbyHandler;
 
 fn main() {
+    openssl_probe::init_ssl_cert_env_vars();
+
     let app_args = App::new(crate_name!())
         .version(crate_version!())
         .about(crate_description!())
