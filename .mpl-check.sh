@@ -28,6 +28,6 @@ while read -r FILE; do
         echo "${FILE}  FAILED"
         EXITCODE=1
     fi
-done <<< "$(find src -type f -name '*.rs')"
+done <<< "$(find . -not \( -path './target/*' -o -path './build-cache/*' \) -a -type f -name '*.rs')"
 
 exit "${EXITCODE}"
