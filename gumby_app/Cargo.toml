@@ -14,6 +14,6 @@ chrono-tz = "0.4.1"
 openssl-probe = "0.1.2"
 gumby_ability = { path = "../gumby_ability" }
 gumby_tz = { path = "../abilities/gumby_tz" }
-slog = { version = "2.2.3", features = ["max_level_trace", "release_max_level_warn"] }
+slog = { version = "2.2.3", features = ["max_level_trace", "release_max_level_debug"] }
 sloggers = "0.2.6"
 itertools = "0.7.8"
