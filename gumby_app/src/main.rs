@@ -11,24 +11,39 @@ extern crate gumby_tz;
 extern crate openssl_probe;
 extern crate slack;
 extern crate slack_api;
+#[macro_use]
+extern crate slog;
+extern crate sloggers;
 
 use gumby_ability::Ability;
 use clap::{App, Arg};
+use sloggers::Build;
 
 fn main() {
+    let mut logger = sloggers::terminal::TerminalLoggerBuilder::new();
+    logger.level(sloggers::types::Severity::Debug);
+    logger.destination(sloggers::terminal::Destination::Stderr);
+    let logger = logger.build().unwrap();
+
+    debug!(logger, "Initializing SSL certificate env vars");
     openssl_probe::init_ssl_cert_env_vars();
 
-    let ability_tz = gumby_tz::TZ::new(vec![
-        chrono_tz::America::Los_Angeles,
-        chrono_tz::America::Chicago,
-        chrono_tz::America::New_York,
-        chrono_tz::UTC,
-        chrono_tz::Europe::Warsaw,
-        chrono_tz::Europe::Saratov,
-    ]);
+    debug!(logger, "Initializing ability: TZ");
+    let ability_tz = gumby_tz::TZ::new(
+        vec![
+            chrono_tz::America::Los_Angeles,
+            chrono_tz::America::Chicago,
+            chrono_tz::America::New_York,
+            chrono_tz::UTC,
+            chrono_tz::Europe::Warsaw,
+            chrono_tz::Europe::Saratov,
+        ],
+        Some(&logger),
+    );
 
     let abilities: Vec<&Ability> = vec![&ability_tz];
 
+    debug!(logger, "Initializing & parsing cmdline args");
     let app_args = App::new(crate_name!())
         .version(crate_version!())
         .about(crate_description!())
@@ -43,16 +58,30 @@ fn main() {
         )
         .get_matches();
 
+    debug!(logger, "Retrieving slack_api_token");
     // unwrap is safe: slack_api_token is .required(true)
     let slack_api_token = app_args.value_of("slack_api_token").unwrap();
 
+    info!(logger, "Logging into slack");
     let rtm_client = slack::RtmClient::login(slack_api_token).unwrap();
+    debug!(logger, "Creating web API client");
     let web_client = slack_api::requests::Client::new().unwrap();
 
-    let mut gumby_handler =
-        gumby_app::GumbyHandler::new(&rtm_client, slack_api_token, web_client, &abilities);
+    debug!(logger, "Creating GumbyHandler");
+    let mut gumby_handler = gumby_app::GumbyHandler::new(
+        &rtm_client,
+        slack_api_token,
+        web_client,
+        &abilities,
+        Some(&logger),
+    );
+
+    info!(logger, "Running slack message receive-loop");
     match rtm_client.run(&mut gumby_handler) {
-        Ok(()) => (),
-        Err(err) => panic!("Ooops: {:?}", err),
+        Ok(()) => info!(logger, "Slack message receive-loop closed successfuly"),
+        Err(err) => {
+            error!(logger, "Slack message receive-loop failed: {:?}", err);
+            panic!("Slack message receive-loop error");
+        }
     }
 }

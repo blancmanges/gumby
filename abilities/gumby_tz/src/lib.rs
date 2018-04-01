@@ -6,18 +6,33 @@ extern crate chrono;
 extern crate chrono_tz;
 extern crate gumby_ability;
 extern crate itertools;
+#[macro_use]
+extern crate slog;
 
 use itertools::Itertools;
 use chrono::{DateTime, Utc};
 
 pub struct TZ {
     timezones: Vec<chrono_tz::Tz>,
+    logger: slog::Logger,
 }
 
 impl TZ {
     /// Constructs a new `TZ` with a given list of timezones.
-    pub fn new(timezones: Vec<chrono_tz::Tz>) -> TZ {
-        TZ { timezones }
+    pub fn new(timezones: Vec<chrono_tz::Tz>, logger: Option<&slog::Logger>) -> TZ {
+        let timezones_names = timezones.clone().into_iter().map(|tz| tz.name()).join(",");
+        let logger_ctx = o!(
+            "ability" => "TZ",
+            "timezones" => format!("[{}]", timezones_names),
+        );
+        TZ {
+            timezones,
+            logger: logger
+                .map_or(slog::Logger::root(slog::Discard, o!()), |l| {
+                    l.new(o!())
+                })
+                .new(logger_ctx),
+        }
     }
 
     /// Creates a reply text basing on given time and timezones.
@@ -58,12 +73,19 @@ impl gumby_ability::Ability for TZ {
     }
 
     fn reply_to(&self, msg: &str) -> String {
+        let logger = self.logger.new(o!(
+            "message" => msg.to_string(),
+        ));
         match msg {
             "" => {
                 let utc_now: DateTime<Utc> = Utc::now();
+                debug!(logger, "UTC now: {}", utc_now);
                 TZ::reply_time(&utc_now, &self.timezones)
             }
-            _ => unimplemented!(""),
+            _ => {
+                warn!(logger, "Wrong subcommand");
+                "Wrong command".to_string()
+            }
         }
     }
 }
