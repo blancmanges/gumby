@@ -94,6 +94,16 @@ impl<'a> GumbyHandler<'a> {
         return None;
     }
 
+    fn prepare_help(&self, logger: &slog::Logger) -> String {
+        debug!(logger, "Preparing help message");
+        let mut msg = "*Available commands:*\n\n".to_string();
+        for ability in self.abilities {
+            msg.push_str(&format!("- `{}`\n", ability.callout()));
+        }
+        msg.push_str("- `help`");
+        msg
+    }
+
     /// Executes the command.
     ///
     /// Will execute all matching abilities.
@@ -105,12 +115,18 @@ impl<'a> GumbyHandler<'a> {
         message_chan: &'a str,
         logger: &slog::Logger,
     ) {
-        for ability in self.abilities {
-            if ability.callout() == command {
-                info!(logger, "Executing ability {}", ability.callout());
-                let response = ability.reply_to(args);
-                info!(logger, "Sending response from ability: {}", response);
-                cli.sender().send_message(message_chan, &response).unwrap();
+        if command == "help" {
+            let response = self.prepare_help(&logger);
+            info!(logger, "Sending response (help text)");
+            cli.sender().send_message(message_chan, &response).unwrap();
+        } else {
+            for ability in self.abilities {
+                if ability.callout() == command {
+                    info!(logger, "Executing ability {}", ability.callout());
+                    let response = ability.reply_to(args);
+                    info!(logger, "Sending response from ability: {}", response);
+                    cli.sender().send_message(message_chan, &response).unwrap();
+                }
             }
         }
     }
