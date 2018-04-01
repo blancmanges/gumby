@@ -24,7 +24,7 @@ impl TZ {
     ///
     /// # Example output
     ///
-    /// ```
+    /// ```plaintext
     /// America/New_York      --   Thu, 2018-03-29 at 16:30   --   EDT (-0400)
     /// UTC                   --   Thu, 2018-03-29 at 20:30   --   UTC (+0000)
     /// Europe/Warsaw         --   Thu, 2018-03-29 at 22:30   --   CEST (+0200)

@@ -10,17 +10,8 @@ pub trait Ability {
     /// When ability is invoked, this method will receive
     /// the remaining (stripped) invocation line.
     ///
-    /// # Example
-    ///
-    /// For ability with `callout() == FOO`, when
-    /// user sends:
-    ///
-    /// > FOO 1 2 3
-    ///
-    /// then the ability will be invoked as:
-    ///
-    /// ```
-    /// foo.reply_to("1 2 3")
-    /// ```
+    /// For ability with `callout() == FOOBAR`, when
+    /// the user sends "FOO 1 2 3", then the ability
+    /// will be invoked as `foo.reply_to("1 2 3")`.
     fn reply_to(&self, msg: &str) -> String;
 }
