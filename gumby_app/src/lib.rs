@@ -14,7 +14,8 @@ use slack::{Event, Message, RtmClient};
 use itertools::Itertools;
 
 pub struct GumbyHandler<'a> {
-    #[allow(dead_code)] slack_api_token: String,
+    #[allow(dead_code)]
+    slack_api_token: String,
     slack_web_client: slack_api::requests::Client,
     gumby_callout: String,
     abilities: &'a [&'a Ability],
