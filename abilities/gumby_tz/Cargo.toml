@@ -3,7 +3,7 @@ name = "gumby_tz"
 version = "0.0.1"
 authors = ["Konrad Gądek <kgadek@gmail.com>"]
 license = "MPL-2.0"
-repository = "https://github.com/kgadek/gumby"
+repository = "https://github.com/blancmanges/gumby"
 
 [dependencies]
 gumby_ability = { path = "../../gumby_ability" }

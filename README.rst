@@ -2,8 +2,8 @@
  Mr Gumby, a stupid slackbot
 =============================
 
-.. image:: https://travis-ci.org/kgadek/gumby.svg?branch=master
-    :target: https://travis-ci.org/kgadek/gumby
+.. image:: https://travis-ci.org/blancmanges/gumby.svg?branch=master
+    :target: https://travis-ci.org/blancmanges/gumby
 
 .. contents:: Table of Contents
    :depth: 2
