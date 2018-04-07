@@ -9,4 +9,4 @@ matrix:
     - rust: nightly
   fast_finish: true
 after_script:
-- bash -euo pipefail .mpl-check.sh
+  - bash -euo pipefail .mpl-check.sh
