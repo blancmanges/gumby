@@ -9,8 +9,8 @@ extern crate itertools;
 #[macro_use]
 extern crate slog;
 
-use itertools::Itertools;
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 
 pub struct TZ {
     timezones: Vec<chrono_tz::Tz>,

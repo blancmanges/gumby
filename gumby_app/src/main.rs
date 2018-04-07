@@ -15,8 +15,8 @@ extern crate slack_api;
 extern crate slog;
 extern crate sloggers;
 
-use gumby_ability::Ability;
 use clap::{App, Arg};
+use gumby_ability::Ability;
 use sloggers::Build;
 
 fn main() {

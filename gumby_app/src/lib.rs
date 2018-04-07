@@ -10,8 +10,8 @@ extern crate slack_api;
 extern crate slog;
 
 use gumby_ability::Ability;
-use slack::{Event, Message, RtmClient};
 use itertools::Itertools;
+use slack::{Event, Message, RtmClient};
 
 pub struct GumbyHandler<'a> {
     #[allow(dead_code)]
