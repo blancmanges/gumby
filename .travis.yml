@@ -8,5 +8,8 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
 after_script:
   - bash -euo pipefail .mpl-check.sh
