@@ -7,7 +7,7 @@ repository = "https://github.com/blancmanges/gumby"
 
 [dependencies]
 gumby_ability = { path = "../../gumby_ability" }
-chrono = "0.4.1"
+chrono = "0.4.2"
 chrono-tz = "0.4.1"
 itertools = "0.7.8"
 slog = "2.2.3"
