@@ -183,6 +183,7 @@ dependencies = [
  "chrono-tz 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gumby_ability 0.0.1",
+ "gumby_cmd 0.0.1",
  "gumby_tz 0.0.1",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-probe 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -190,6 +191,15 @@ dependencies = [
  "slack_api 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog 2.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "sloggers 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "gumby_cmd"
+version = "0.0.1"
+dependencies = [
+ "gumby_ability 0.0.1",
+ "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

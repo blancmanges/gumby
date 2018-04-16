@@ -1,0 +1,11 @@
+[package]
+name = "gumby_cmd"
+version = "0.0.1"
+authors = ["Konrad Gądek <kgadek@gmail.com>"]
+license = "MPL-2.0"
+repository = "https://github.com/blancmanges/gumby"
+
+[dependencies]
+gumby_ability = { path = "../../gumby_ability" }
+slog = "2.2.3"
+itertools = "0.7.8"

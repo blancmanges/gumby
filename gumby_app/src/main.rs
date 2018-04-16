@@ -7,6 +7,7 @@ extern crate chrono_tz;
 extern crate clap;
 extern crate gumby_ability;
 extern crate gumby_app;
+extern crate gumby_cmd;
 extern crate gumby_tz;
 extern crate openssl_probe;
 extern crate slack;
@@ -41,7 +42,15 @@ fn main() {
         Some(&logger),
     );
 
-    let abilities: Vec<&Ability> = vec![&ability_tz];
+    debug!(logger, "Initializing ability: CMD");
+    let ability_cmd = gumby_cmd::CMD::new(
+        "mod_passwd",
+        "ls",
+        vec!["-alhd", "/etc/passwd"],
+        Some(&logger),
+    );
+
+    let abilities: Vec<&Ability> = vec![&ability_tz, &ability_cmd];
 
     debug!(logger, "Initializing & parsing cmdline args");
     let app_args = App::new(crate_name!())
