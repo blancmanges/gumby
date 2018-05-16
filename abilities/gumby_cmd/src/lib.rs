@@ -7,8 +7,8 @@ extern crate itertools;
 #[macro_use]
 extern crate slog;
 
-use std::process::Command;
 use itertools::Itertools;
+use std::process::Command;
 
 pub struct CMD {
     slack_cmd: &'static str,
