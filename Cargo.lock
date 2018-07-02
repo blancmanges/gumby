@@ -269,7 +269,7 @@ dependencies = [
  "slack 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slack_api 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog 2.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sloggers 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sloggers 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1041,7 +1041,7 @@ dependencies = [
 
 [[package]]
 name = "sloggers"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde 1.0.36 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1605,7 +1605,7 @@ dependencies = [
 "checksum slog-scope 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "053344c94c0e2b22da6305efddb698d7c485809427cf40555dc936085f67a9df"
 "checksum slog-stdlog 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ac42f8254ae996cc7d640f9410d3b048dcdf8887a10df4d5d4c44966de24c4a8"
 "checksum slog-term 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5bb5d9360b2b279b326824b3b4ca2402ead8a8138f0e5ec1900605c861bb6671"
-"checksum sloggers 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "5945e461879257ed502af0e5a01d50961e967ac2fa12b34d243f58ac50dfb2c8"
+"checksum sloggers 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "b181849c373d365e21e6abaa7a82622ef17123e17e1bb1751332ee191b7225ae"
 "checksum smallvec 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4c8cbcd6df1e117c2210e13ab5109635ad68a929fcbb8964dc965b76cb5ee013"
 "checksum strsim 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bb4f380125926a99e52bc279241539c018323fab05ad6368b56f93d9369ff550"
 "checksum syn 0.12.15 (registry+https://github.com/rust-lang/crates.io-index)" = "c97c05b8ebc34ddd6b967994d5c6e9852fa92f8b82b3858c39451f97346dcce5"
