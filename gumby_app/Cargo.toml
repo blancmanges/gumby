@@ -10,7 +10,7 @@ description = "Mr Gumby, a stupid slackbot."
 slack = "0.21.0"
 slack_api = "0.19.0"
 clap = "2.31.2"
-chrono-tz = "0.4.1"
+chrono-tz = "0.5.0"
 openssl-probe = "0.1.2"
 gumby_ability = { path = "../gumby_ability" }
 gumby_tz = { path = "../abilities/gumby_tz" }

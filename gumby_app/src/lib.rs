@@ -66,9 +66,7 @@ impl<'a> GumbyHandler<'a> {
             gumby_callout,
             abilities,
             logger: logger
-                .map_or(slog::Logger::root(slog::Discard, o!()), |l| {
-                    l.new(o!())
-                })
+                .map_or(slog::Logger::root(slog::Discard, o!()), |l| l.new(o!()))
                 .new(logger_ctx),
         }
     }
