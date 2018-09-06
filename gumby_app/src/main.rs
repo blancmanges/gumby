@@ -74,7 +74,7 @@ fn main() {
     info!(logger, "Logging into slack");
     let rtm_client = slack::RtmClient::login(slack_api_token).unwrap();
     debug!(logger, "Creating web API client");
-    let web_client = slack_api::requests::Client::new().unwrap();
+    let web_client = slack_api::requests::Client::new();
 
     debug!(logger, "Creating GumbyHandler");
     let mut gumby_handler = gumby_app::GumbyHandler::new(
