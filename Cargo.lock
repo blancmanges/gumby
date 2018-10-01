@@ -259,7 +259,7 @@ dependencies = [
  "openssl-probe 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "slack 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slack_api 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sloggers 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -269,7 +269,7 @@ version = "0.0.1"
 dependencies = [
  "gumby_ability 0.0.1",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -280,7 +280,7 @@ dependencies = [
  "chrono-tz 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gumby_ability 0.0.1",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -927,7 +927,7 @@ dependencies = [
 
 [[package]]
 name = "slog"
-version = "2.3.3"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -935,7 +935,7 @@ name = "slog-async"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "take_mut 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "thread_local 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -945,7 +945,7 @@ name = "slog-kvfilter"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -955,7 +955,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "crossbeam 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -965,7 +965,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "crossbeam 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-scope 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -976,7 +976,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "isatty 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "term 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "thread_local 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -988,7 +988,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde 1.0.76 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.76 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-async 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-kvfilter 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-scope 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1558,7 +1558,7 @@ dependencies = [
 "checksum slab 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5f9776d6b986f77b35c6cf846c11ad986ff128fe0b2b63a3628e3755e8d3102d"
 "checksum slack 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f38e44d06013f66a0c31c56f67b92a024f5cfd8a57e47b5bc227733b27304aa7"
 "checksum slack_api 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ae0b6a6b5576901e4311c71766f95437e824656703fbc0f73649508b032ddee8"
-"checksum slog 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "09e4f1d0276ac7d448d98db16f0dab0220c24d4842d88ce4dad4b306fa234f1d"
+"checksum slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bfa327244a3244dbe5841c50663ea916d5bd960fe8620b8cd37853cd799fbb37"
 "checksum slog-async 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e544d16c6b230d84c866662fe55e31aacfca6ae71e6fc49ae9a311cb379bfc2f"
 "checksum slog-kvfilter 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5a9c80056963c1cef5ee88a868da667b3fc71a0004e635e00e3e18b028884f77"
 "checksum slog-scope 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "053344c94c0e2b22da6305efddb698d7c485809427cf40555dc936085f67a9df"
