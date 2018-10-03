@@ -64,8 +64,7 @@ fn main() {
                 .required(true)
                 .env("SLACK_API_TOKEN")
                 .hide_env_values(true),
-        )
-        .get_matches();
+        ).get_matches();
 
     debug!(logger, "Retrieving slack_api_token");
     // unwrap is safe: slack_api_token is .required(true)

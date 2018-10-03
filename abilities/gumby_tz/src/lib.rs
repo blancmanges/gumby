@@ -59,8 +59,7 @@ impl TZ {
                     tz_name = tz.name(),
                     tz_name_width = tz_name_max_len,
                     time = time.with_timezone(tz).format(date_fmt)
-                ))
-                .join("\n")
+                )).join("\n")
         )
     }
 }
