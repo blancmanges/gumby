@@ -15,6 +15,6 @@ openssl-probe = "0.1.2"
 gumby_ability = { path = "../gumby_ability" }
 gumby_tz = { path = "../abilities/gumby_tz" }
 gumby_cmd = { path = "../abilities/gumby_cmd" }
-slog = { version = "2.4.0", features = ["max_level_trace", "release_max_level_debug"] }
+slog = { version = "2.4.1", features = ["max_level_trace", "release_max_level_debug"] }
 sloggers = "0.2.9"
 itertools = "0.7.8"
