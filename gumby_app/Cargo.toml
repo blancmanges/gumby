@@ -7,7 +7,7 @@ repository = "https://github.com/blancmanges/gumby"
 description = "Mr Gumby, a stupid slackbot."
 
 [dependencies]
-slack = "0.21.0"
+slack = "0.22.0"
 slack_api = "0.20.0"
 clap = "2.31.2"
 chrono-tz = "0.5.0"
