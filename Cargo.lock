@@ -260,7 +260,7 @@ dependencies = [
  "slack 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slack_api 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sloggers 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sloggers 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -975,7 +975,7 @@ dependencies = [
 
 [[package]]
 name = "slog-kvfilter"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "regex 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1017,16 +1017,17 @@ dependencies = [
 
 [[package]]
 name = "sloggers"
-version = "0.2.9"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "libflate 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-async 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "slog-kvfilter 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "slog-kvfilter 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-scope 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-stdlog 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "slog-term 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1613,11 +1614,11 @@ dependencies = [
 "checksum slack_api 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ae0b6a6b5576901e4311c71766f95437e824656703fbc0f73649508b032ddee8"
 "checksum slog 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bfa327244a3244dbe5841c50663ea916d5bd960fe8620b8cd37853cd799fbb37"
 "checksum slog-async 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e544d16c6b230d84c866662fe55e31aacfca6ae71e6fc49ae9a311cb379bfc2f"
-"checksum slog-kvfilter 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3559436c53585f74fabf9968bec1f5fd8ddd6d427bd3b930aa98690f2861dd55"
+"checksum slog-kvfilter 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ae939ed7d169eed9699f4f5cd440f046f5dc5dfc27c19e3cd311619594c175e0"
 "checksum slog-scope 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "053344c94c0e2b22da6305efddb698d7c485809427cf40555dc936085f67a9df"
 "checksum slog-stdlog 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ac42f8254ae996cc7d640f9410d3b048dcdf8887a10df4d5d4c44966de24c4a8"
 "checksum slog-term 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5951a808c40f419922ee014c15b6ae1cd34d963538b57d8a4778b9ca3fff1e0b"
-"checksum sloggers 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)" = "621b78e8ebe730dee6dffc3557fbf5cac9eb523f3e62ea4e80549ac06ce47b01"
+"checksum sloggers 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2c9179872eb8ba4e69f58a16362145e2bb00768d7ae865b4282cca3805939121"
 "checksum smallvec 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "153ffa32fd170e9944f7e0838edf824a754ec4c1fc64746fcc9fe1f8fa602e5d"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum strsim 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bb4f380125926a99e52bc279241539c018323fab05ad6368b56f93d9369ff550"
